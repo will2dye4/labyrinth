@@ -31,8 +31,10 @@ class Direction(Enum):
 
 class Maze:
 
-    def __init__(self, width=10, height=10):
+    def __init__(self, width=10, height=10, initialize=True):
         self._grid = Grid(width, height)
+        if initialize:
+            recursive_backtrack(self)
 
     def __getitem__(self, item):
         return self._grid[item]
