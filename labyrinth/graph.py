@@ -88,4 +88,4 @@ class Graph:
     def _ensure_vertices(self, *vertices):
         for vertex in vertices:
             if vertex not in self._adjacencies:
-                raise ValueError(f'Invalid vertex {vertex:r}')
+                raise ValueError(f'Invalid vertex {vertex!r}')

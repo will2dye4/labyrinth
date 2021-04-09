@@ -52,9 +52,9 @@ class Grid:
 
     def get_cell(self, row, column):
         if not 0 <= row < self.height:
-            raise ValueError(f'Invalid row {row}')
+            raise ValueError(f'Invalid row {row!r}')
         if not 0 <= column < self.width:
-            raise ValueError(f'Invalid column {column}')
+            raise ValueError(f'Invalid column {column!r}')
         return self._cells[(row, column)]
 
     def neighbors(self, row, column):
