@@ -4,6 +4,8 @@ Labyrinth is a maze generator written in Python. It is currently a work in progr
 
 ## Example Usage
 
+### Command Line
+
 ```
 >>> from labyrinth.maze import Maze
 >>> print(Maze(20, 10))
@@ -29,3 +31,11 @@ Labyrinth is a maze generator written in Python. It is currently a work in progr
 |                   |                               |                           |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ```
+
+### GUI Mode
+
+```
+$ python3 labyrinth/ui.py
+```
+
+![GUI Mode](./images/gui_mode.png)
