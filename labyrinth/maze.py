@@ -1,6 +1,6 @@
 from enum import Enum
-import random
 
+from labyrinth.generate import RandomDepthFirstSearchGenerator
 from labyrinth.grid import Grid
 
 
@@ -31,10 +31,10 @@ class Direction(Enum):
 
 class Maze:
 
-    def __init__(self, width=10, height=10, initialize=True):
+    def __init__(self, width=10, height=10, generator_cls=RandomDepthFirstSearchGenerator):
         self._grid = Grid(width, height)
-        if initialize:
-            recursive_backtrack(self)
+        if generator_cls:
+            generator_cls(self).generate()
 
     def __getitem__(self, item):
         return self._grid[item]
@@ -69,19 +69,11 @@ class Maze:
     def neighbors(self, row, column):
         return self._grid.neighbors(row, column)
 
+    def depth_first_search(self, start_row, start_column, visit_fn):
+        self._grid.graph.depth_first_search(self[start_row, start_column], visit_fn)
+
     @staticmethod
     def open_wall(start_cell, end_cell):
         direction = Direction.between(start_cell, end_cell)
         start_cell.open_walls.add(direction)
         end_cell.open_walls.add(direction.opposite)
-
-
-def recursive_backtrack(maze, row=0, column=0):
-    cell = maze[row, column]
-    neighbors = list(maze.neighbors(row, column))
-    random.shuffle(neighbors)
-
-    for neighbor in neighbors:
-        if not neighbor.open_walls:
-            maze.open_wall(cell, neighbor)
-            recursive_backtrack(maze, neighbor.row, neighbor.column)

@@ -72,7 +72,7 @@ class MazeApp(tk.Frame):
     def motion_handler(self, event):
         if self.drawing_path:
             coordinates = self.get_selected_cell_coordinates(event)
-            if coordinates != self.path[-1].coordinates:
+            if self.path and coordinates != self.path[-1].coordinates:
                 if len(self.path) > 1 and coordinates == self.path[-2].coordinates:
                     # moved back one, deselect the most recent cell
                     self.select_cell(*self.path[-1].coordinates)

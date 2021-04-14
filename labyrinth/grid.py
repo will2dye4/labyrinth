@@ -8,6 +8,9 @@ class Cell:
         self._column = column
         self.open_walls = set()
 
+    def __str__(self):
+        return f'{self.__class__.__name__}{self.coordinates}'
+
     @property
     def row(self):
         return self._row
@@ -49,6 +52,10 @@ class Grid:
     @property
     def height(self):
         return self._height
+
+    @property
+    def graph(self):
+        return self._graph
 
     def get_cell(self, row, column):
         if not 0 <= row < self.height:
