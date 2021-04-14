@@ -31,10 +31,10 @@ class Direction(Enum):
 
 class Maze:
 
-    def __init__(self, width=10, height=10, generator_cls=RandomDepthFirstSearchGenerator):
+    def __init__(self, width=10, height=10, generator=RandomDepthFirstSearchGenerator()):
         self._grid = Grid(width, height)
-        if generator_cls:
-            generator_cls(self).generate()
+        if generator:
+            generator.generate(self)
 
     def __getitem__(self, item):
         return self._grid[item]

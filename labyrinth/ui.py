@@ -1,6 +1,7 @@
 import time
 import tkinter as tk
 
+from labyrinth.generate import MazeUpdateType, RandomDepthFirstSearchGenerator
 from labyrinth.maze import Direction, Maze
 
 
@@ -12,11 +13,17 @@ class MazeApp(tk.Frame):
     CELL_WIDTH = 35
     CELL_HEIGHT = CELL_WIDTH
 
-    PATH_COLOR = '#C3E3F7'
+    FONT = ('Arial', 20)
 
+    BACKGROUND_COLOR = '#444444'
+    GENERATE_PATH_COLOR = '#F5A676'
+    PATH_COLOR = '#C3E3F7'
+    TEXT_COLOR = 'white'
+
+    DEFAULT_STEP_DELAY_MILLIS = 50
     TICK_DELAY_MILLIS = 500
 
-    def __init__(self, master=None, width=10, height=10, validate_moves=True):
+    def __init__(self, master=None, width=10, height=10, validate_moves=True, delay_millis=DEFAULT_STEP_DELAY_MILLIS):
         if master is None:
             master = tk.Tk()
             master.title('Maze Generator')
@@ -26,16 +33,33 @@ class MazeApp(tk.Frame):
         self.width = width
         self.height = height
         self.validate_moves = validate_moves
+        self.delay_millis = delay_millis
+
+        self.generating_maze = False
         self.drawing_path = False
+        self.generator = None
         self.maze = None
         self.path = []
+
+        self.winfo_toplevel().configure(bg=self.BACKGROUND_COLOR)
         self.pack()
         self.canvas = self.create_canvas()
         self.stats = self.create_stats_display()
+        self.animate_var = tk.IntVar()
+        self.speed_scale = None
         self.create_menu()
+
         self.start_time = None
         self.end_time = None
-        self.generate_new_maze()
+        self.generate_new_maze(generate=False)
+
+    @property
+    def animate(self):
+        return self.animate_var.get() == 1
+
+    @animate.setter
+    def animate(self, value):
+        self.animate_var.set(1 if value else 0)
 
     def create_canvas(self):
         width = self.CELL_WIDTH * self.width + self.BORDER_OFFSET
@@ -46,23 +70,46 @@ class MazeApp(tk.Frame):
         canvas.pack(side='top')
         return canvas
 
-    @staticmethod
-    def create_stats_display():
-        stats = tk.Label(pady=5)
+    @classmethod
+    def create_stats_display(cls):
+        stats = tk.Label(pady=5, bg=cls.BACKGROUND_COLOR, fg=cls.TEXT_COLOR, font=cls.FONT)
         stats.pack(side='top')
         return stats
 
     def create_menu(self):
-        menu = tk.Frame()
-        new_button = tk.Label(menu, fg='blue', text='[ New Maze ]', cursor='hand2')
+        menu = tk.Frame(bg=self.BACKGROUND_COLOR, pady=10)
+
+        new_button = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.PATH_COLOR, font=self.FONT, padx=30,
+                              text='[ New Maze ]', cursor='hand2')
         new_button.bind('<Button-1>', self.generate_new_maze)
         new_button.pack(side='left')
+
+        animate_button = tk.Checkbutton(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, padx=5,
+                                        text='Animate\t\t', variable=self.animate_var, command=self.toggle_animate)
+        animate_button.pack(side='left')
+        self.animate = True
+
+        self.speed_scale = tk.Scale(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, orient=tk.HORIZONTAL,
+                                    length=150, from_=10, to=100, showvalue=0, command=self.update_animation_delay)
+        self.speed_scale.pack(side='left')
+
+        delay_label = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, padx=10,
+                               text='Delay')
+        delay_label.pack(side='left')
+
         menu.pack(side='top')
 
+    @staticmethod
+    def get_wall_tag(row, column, direction):
+        return f'{row}_{column}_{direction.name}'
+
     def click_handler(self, event):
+        if self.generating_maze:
+            return
         if self.drawing_path:
             self.drawing_path = False
-            if self.path and self.path[-1].column == self.width - 1:
+            if self.end_time is None and self.path and \
+                    (self.path[-1].row, self.path[-1].column) == (self.height - 1, self.width - 1):
                 self.end_time = time.time()
         else:
             coordinates = self.get_selected_cell_coordinates(event)
@@ -70,6 +117,8 @@ class MazeApp(tk.Frame):
             self.drawing_path = True
 
     def motion_handler(self, event):
+        if self.generating_maze:
+            return
         if self.drawing_path:
             coordinates = self.get_selected_cell_coordinates(event)
             if self.path and coordinates != self.path[-1].coordinates:
@@ -79,12 +128,61 @@ class MazeApp(tk.Frame):
                 else:
                     self.select_cell(*coordinates)
 
-    def generate_new_maze(self, event=None):
+    def toggle_animate(self):
+        self.speed_scale['state'] = tk.NORMAL if self.animate else tk.DISABLED
+
+    def update_animation_delay(self, delay_in_millis=DEFAULT_STEP_DELAY_MILLIS):
+        self.delay_millis = int(delay_in_millis)
+
+    def generate_new_maze(self, event=None, generate=True):
+        self.clear_path()
+        self.maze = Maze(self.width, self.height, generator=None)
+        self.start_time = None
+        self.create_maze_grid()
+
+        if generate:
+            self.generate_current_maze()
+
+    def generate_current_maze(self, event=None):
+        if self.generator is None:
+            self.generator = RandomDepthFirstSearchGenerator()
+
+        if self.animate:
+            self.generator.event_listener = self.update_maze
+        else:
+            self.generator.event_listener = None
+
+        self.generating_maze = True
+        self.clear_path()
+        self.generator.generate(self.maze)
+        self.clear_path()
+        self.generating_maze = False
+
+        if not self.animate:
+            self.create_maze_grid()
+
+        self.start_time = time.time()
+        self.end_time = None
+
+    def update_maze(self, state):
+        if state.type == MazeUpdateType.WALL_REMOVED:
+            direction = Direction.between(state.start_cell, state.end_cell)
+            wall_tag = self.get_wall_tag(state.start_cell.row, state.start_cell.column, direction)
+            self.canvas.delete(wall_tag)
+            opposite_wall_tag = self.get_wall_tag(state.end_cell.row, state.end_cell.column, direction.opposite)
+            self.canvas.delete(opposite_wall_tag)
+            if not self.path or state.start_cell != self.path[-1]:
+                self.clear_path()
+                self.path.append(state.start_cell)
+                self.fill_cell(state.start_cell, self.GENERATE_PATH_COLOR)
+            self.path.append(state.end_cell)
+            self.fill_cell(state.end_cell, self.GENERATE_PATH_COLOR)
+            self.canvas.update()
+        time.sleep(self.delay_millis / 1000)
+
+    def create_maze_grid(self):
         for obj in self.canvas.find_all():
             self.canvas.delete(obj)
-
-        self.maze = Maze(self.width, self.height)
-        self.path.clear()
 
         for row in range(self.height):
             for column in range(self.width):
@@ -105,10 +203,8 @@ class MazeApp(tk.Frame):
                     if direction not in cell.open_walls:
                         if width_predicate(row, column):
                             width = self.BORDER_WIDTH
-                        self.canvas.create_line(*coordinates, width=width)
-
-        self.start_time = time.time()
-        self.end_time = None
+                        tag = self.get_wall_tag(row, column, direction)
+                        self.canvas.create_line(*coordinates, width=width, tags=tag)
 
     def get_selected_cell_coordinates(self, event):
         row = max(0, min(event.y // self.CELL_HEIGHT, self.height - 1))
@@ -139,19 +235,26 @@ class MazeApp(tk.Frame):
                     # print(f'Invalid move (through {direction.name} wall)')
                     return
 
-        row_offset = 2 if row in {0, self.height - 1} else 1
-        column_offset = 2 if column in {0, self.width - 1} else 1
-        x0 = self.CELL_WIDTH * column + self.BORDER_OFFSET + column_offset
-        y0 = self.CELL_HEIGHT * row + self.BORDER_OFFSET + row_offset
-        x1 = x0 + self.CELL_WIDTH - (2 if column == self.width - 1 else 1) * column_offset
-        y1 = y0 + self.CELL_HEIGHT - (2 if row == self.height - 1 else 1) * row_offset
         color = self.PATH_COLOR if add else 'white'
-        self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, width=0)
+        self.fill_cell(clicked_cell, color)
 
         if add:
             self.path.append(clicked_cell)
         else:
             self.path = self.path[:-1]
+
+    def fill_cell(self, cell, color, tag='path'):
+        row_offset = 2 if cell.row in {0, self.height - 1} else 1
+        column_offset = 2 if cell.column in {0, self.width - 1} else 1
+        x0 = self.CELL_WIDTH * cell.column + self.BORDER_OFFSET + column_offset
+        y0 = self.CELL_HEIGHT * cell.row + self.BORDER_OFFSET + row_offset
+        x1 = x0 + self.CELL_WIDTH - (2 if cell.column == self.width - 1 else 1) * column_offset
+        y1 = y0 + self.CELL_HEIGHT - (2 if cell.row == self.height - 1 else 1) * row_offset
+        self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, width=0, tags=tag)
+
+    def clear_path(self):
+        self.path.clear()
+        self.canvas.delete('path')
 
     @property
     def elapsed_time(self):
