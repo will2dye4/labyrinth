@@ -1,32 +1,34 @@
+from typing import Set, Tuple
+
 from labyrinth.graph import Graph
 
 
 class Cell:
 
-    def __init__(self, row, column):
+    def __init__(self, row: int, column: int) -> None:
         self._row = row
         self._column = column
         self.open_walls = set()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.__class__.__name__}{self.coordinates}'
 
     @property
-    def row(self):
+    def row(self) -> int:
         return self._row
 
     @property
-    def column(self):
+    def column(self) -> int:
         return self._column
 
     @property
-    def coordinates(self):
+    def coordinates(self) -> Tuple[int, int]:
         return self.row, self.column
 
 
 class Grid:
 
-    def __init__(self, width=10, height=10):
+    def __init__(self, width: int = 10, height: int = 10) -> None:
         self._width = width
         self._height = height
         self._cells = {}
@@ -42,27 +44,27 @@ class Grid:
                 if column > 0:
                     self._graph.add_edge(cell, self[row, column - 1])
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: Tuple[int, int]) -> Cell:
         return self.get_cell(*item)
 
     @property
-    def width(self):
+    def width(self) -> int:
         return self._width
 
     @property
-    def height(self):
+    def height(self) -> int:
         return self._height
 
     @property
-    def graph(self):
+    def graph(self) -> Graph[Cell]:
         return self._graph
 
-    def get_cell(self, row, column):
+    def get_cell(self, row: int, column: int) -> Cell:
         if not 0 <= row < self.height:
             raise ValueError(f'Invalid row {row!r}')
         if not 0 <= column < self.width:
             raise ValueError(f'Invalid column {column!r}')
         return self._cells[(row, column)]
 
-    def neighbors(self, row, column):
+    def neighbors(self, row: int, column: int) -> Set[Cell]:
         return self._graph.neighbors(self[row, column])

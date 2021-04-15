@@ -1,7 +1,9 @@
+from typing import Optional, Tuple
 import time
 import tkinter as tk
 
-from labyrinth.generate import MazeUpdateType, RandomDepthFirstSearchGenerator
+from labyrinth.generate import MazeUpdate, MazeUpdateType, RandomDepthFirstSearchGenerator
+from labyrinth.grid import Cell
 from labyrinth.maze import Direction, Maze
 
 
@@ -23,7 +25,8 @@ class MazeApp(tk.Frame):
     DEFAULT_STEP_DELAY_MILLIS = 50
     TICK_DELAY_MILLIS = 500
 
-    def __init__(self, master=None, width=10, height=10, validate_moves=True, delay_millis=DEFAULT_STEP_DELAY_MILLIS):
+    def __init__(self, master: tk.Tk = None, width: int = 10, height: int = 10, validate_moves: bool = True,
+                 delay_millis: int = DEFAULT_STEP_DELAY_MILLIS) -> None:
         if master is None:
             master = tk.Tk()
             master.title('Maze Generator')
@@ -54,14 +57,14 @@ class MazeApp(tk.Frame):
         self.generate_new_maze(generate=False)
 
     @property
-    def animate(self):
+    def animate(self) -> bool:
         return self.animate_var.get() == 1
 
     @animate.setter
-    def animate(self, value):
+    def animate(self, value: bool) -> None:
         self.animate_var.set(1 if value else 0)
 
-    def create_canvas(self):
+    def create_canvas(self) -> tk.Canvas:
         width = self.CELL_WIDTH * self.width + self.BORDER_OFFSET
         height = self.CELL_HEIGHT * self.height + self.BORDER_OFFSET
         canvas = tk.Canvas(width=width, height=height, borderwidth=0)
@@ -71,12 +74,12 @@ class MazeApp(tk.Frame):
         return canvas
 
     @classmethod
-    def create_stats_display(cls):
+    def create_stats_display(cls) -> tk.Label:
         stats = tk.Label(pady=5, bg=cls.BACKGROUND_COLOR, fg=cls.TEXT_COLOR, font=cls.FONT)
         stats.pack(side='top')
         return stats
 
-    def create_menu(self):
+    def create_menu(self) -> None:
         menu = tk.Frame(bg=self.BACKGROUND_COLOR, pady=10)
 
         new_button = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.PATH_COLOR, font=self.FONT, padx=30,
@@ -100,10 +103,10 @@ class MazeApp(tk.Frame):
         menu.pack(side='top')
 
     @staticmethod
-    def get_wall_tag(row, column, direction):
+    def get_wall_tag(row: int, column: int, direction: Direction) -> str:
         return f'{row}_{column}_{direction.name}'
 
-    def click_handler(self, event):
+    def click_handler(self, event: tk.Event) -> None:
         if self.generating_maze:
             return
         if self.drawing_path:
@@ -116,7 +119,7 @@ class MazeApp(tk.Frame):
             self.select_cell(*coordinates)
             self.drawing_path = True
 
-    def motion_handler(self, event):
+    def motion_handler(self, event: tk.Event) -> None:
         if self.generating_maze:
             return
         if self.drawing_path:
@@ -128,13 +131,13 @@ class MazeApp(tk.Frame):
                 else:
                     self.select_cell(*coordinates)
 
-    def toggle_animate(self):
+    def toggle_animate(self) -> None:
         self.speed_scale['state'] = tk.NORMAL if self.animate else tk.DISABLED
 
-    def update_animation_delay(self, delay_in_millis=DEFAULT_STEP_DELAY_MILLIS):
+    def update_animation_delay(self, delay_in_millis: int = DEFAULT_STEP_DELAY_MILLIS) -> None:
         self.delay_millis = int(delay_in_millis)
 
-    def generate_new_maze(self, event=None, generate=True):
+    def generate_new_maze(self, event: Optional[tk.Event] = None, generate: bool = True) -> None:
         self.clear_path()
         self.maze = Maze(self.width, self.height, generator=None)
         self.start_time = None
@@ -143,7 +146,7 @@ class MazeApp(tk.Frame):
         if generate:
             self.generate_current_maze()
 
-    def generate_current_maze(self, event=None):
+    def generate_current_maze(self, event: Optional[tk.Event] = None) -> None:
         if self.generator is None:
             self.generator = RandomDepthFirstSearchGenerator()
 
@@ -164,7 +167,7 @@ class MazeApp(tk.Frame):
         self.start_time = time.time()
         self.end_time = None
 
-    def update_maze(self, state):
+    def update_maze(self, state: MazeUpdate) -> None:
         if state.type == MazeUpdateType.WALL_REMOVED:
             direction = Direction.between(state.start_cell, state.end_cell)
             wall_tag = self.get_wall_tag(state.start_cell.row, state.start_cell.column, direction)
@@ -180,7 +183,7 @@ class MazeApp(tk.Frame):
             self.canvas.update()
         time.sleep(self.delay_millis / 1000)
 
-    def create_maze_grid(self):
+    def create_maze_grid(self) -> None:
         for obj in self.canvas.find_all():
             self.canvas.delete(obj)
 
@@ -206,12 +209,12 @@ class MazeApp(tk.Frame):
                         tag = self.get_wall_tag(row, column, direction)
                         self.canvas.create_line(*coordinates, width=width, tags=tag)
 
-    def get_selected_cell_coordinates(self, event):
+    def get_selected_cell_coordinates(self, event: tk.Event) -> Tuple[int, int]:
         row = max(0, min(event.y // self.CELL_HEIGHT, self.height - 1))
         column = max(0, min(event.x // self.CELL_WIDTH, self.width - 1))
         return row, column
 
-    def select_cell(self, row, column):
+    def select_cell(self, row: int, column: int) -> None:
         clicked_cell = self.maze[row, column]
         add = True
 
@@ -243,7 +246,7 @@ class MazeApp(tk.Frame):
         else:
             self.path = self.path[:-1]
 
-    def fill_cell(self, cell, color, tag='path'):
+    def fill_cell(self, cell: Cell, color: str, tag: str = 'path'):
         row_offset = 2 if cell.row in {0, self.height - 1} else 1
         column_offset = 2 if cell.column in {0, self.width - 1} else 1
         x0 = self.CELL_WIDTH * cell.column + self.BORDER_OFFSET + column_offset
@@ -252,24 +255,24 @@ class MazeApp(tk.Frame):
         y1 = y0 + self.CELL_HEIGHT - (2 if cell.row == self.height - 1 else 1) * row_offset
         self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, width=0, tags=tag)
 
-    def clear_path(self):
+    def clear_path(self) -> None:
         self.path.clear()
         self.canvas.delete('path')
 
     @property
-    def elapsed_time(self):
+    def elapsed_time(self) -> float:
         if self.start_time is not None:
             end_time = self.end_time or time.time()
             return end_time - self.start_time
         return 0
 
-    def tick(self):
+    def tick(self) -> None:
         self.stats['text'] = (f'Maze Size: {self.width} x {self.height}         '
                               f'Current Path Length: {len(self.path)}        '
                               f'Elapsed Time: {int(self.elapsed_time)} sec')
         self.after(self.TICK_DELAY_MILLIS, self.tick)
 
-    def run(self):
+    def run(self) -> None:
         self.tick()
         super().mainloop()
 
