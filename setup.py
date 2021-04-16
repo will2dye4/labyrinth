@@ -8,6 +8,8 @@ setup(
     python_requires='>=3.6',
     entry_points={
         'console_scripts': [
+            'labyrinth = labyrinth.__main__:main',
+            'labyrinth-ui = labyrinth.__main__:gui',
             'maze = labyrinth.__main__:main',
             'maze-ui = labyrinth.__main__:gui',
         ]

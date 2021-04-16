@@ -1,3 +1,5 @@
+"""Utility class for dispatching events."""
+
 from typing import Callable, Generic, Optional, TypeVar
 
 
