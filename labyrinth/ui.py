@@ -44,7 +44,10 @@ class MazeApp(tk.Frame):
         self.maze = None
         self.path = []
 
-        self.winfo_toplevel().configure(bg=self.BACKGROUND_COLOR)
+        window = self.winfo_toplevel()
+        window.configure(bg=self.BACKGROUND_COLOR)
+        window.minsize(width=700, height=100)
+
         self.pack()
         self.canvas = self.create_canvas()
         self.stats = self.create_stats_display()
