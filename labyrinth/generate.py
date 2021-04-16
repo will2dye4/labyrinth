@@ -49,7 +49,7 @@ class MazeGenerator(abc.ABC, EventDispatcher[MazeUpdate]):
 
 class RandomDepthFirstSearchGenerator(MazeGenerator):
     """
-    MazeGenerator subclass that generates mazes using the recursive depth-first search algorithm.
+    MazeGenerator subclass that generates mazes using the random depth-first search (DFS) algorithm.
 
     This algorithm is also known as the 'recursive backtrack' algorithm. The algorithm is equivalent to the following:
 
