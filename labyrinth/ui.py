@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 import time
 import tkinter as tk
 
-from labyrinth.generate import MazeUpdate, MazeUpdateType, RandomDepthFirstSearchGenerator
+from labyrinth.generate import MazeUpdate, MazeUpdateType, PrimsGenerator, RandomDepthFirstSearchGenerator
 from labyrinth.grid import Cell
 from labyrinth.maze import Direction, Maze
 
@@ -21,6 +21,7 @@ class MazeApp(tk.Frame):
     FONT = ('Arial', 20)
 
     BACKGROUND_COLOR = '#444444'
+    FRONTIER_COLOR = '#97F593'
     GENERATE_PATH_COLOR = '#F5A676'
     PATH_COLOR = '#C3E3F7'
     TEXT_COLOR = 'white'
@@ -119,6 +120,11 @@ class MazeApp(tk.Frame):
         """Return a formatted tag suitable for use when drawing maze walls on the canvas."""
         return f'{row}_{column}_{direction.name}'
 
+    @staticmethod
+    def get_frontier_tag(row: int, column: int) -> str:
+        """Return a formatted tag suitable for use when drawing frontier cells on the canvas."""
+        return f'{row}_{column}'
+
     def click_handler(self, event: tk.Event) -> None:
         """Event handler for click events on the canvas."""
         if self.generating_maze:
@@ -167,7 +173,8 @@ class MazeApp(tk.Frame):
     def generate_current_maze(self, event: Optional[tk.Event] = None) -> None:
         """Generate paths through the current maze."""
         if self.generator is None:
-            self.generator = RandomDepthFirstSearchGenerator()
+            # self.generator = RandomDepthFirstSearchGenerator()
+            self.generator = PrimsGenerator()
 
         if self.animate:
             self.generator.event_listener = self.update_maze
@@ -200,8 +207,15 @@ class MazeApp(tk.Frame):
                 self.fill_cell(state.start_cell, self.GENERATE_PATH_COLOR)
             self.path.append(state.end_cell)
             self.fill_cell(state.end_cell, self.GENERATE_PATH_COLOR)
-            self.canvas.update()
-        time.sleep(self.delay_millis / 1000)
+        elif state.type == MazeUpdateType.CELL_MARKED:
+            self.canvas.delete(self.get_frontier_tag(*state.start_cell.coordinates))
+            for cell in state.new_frontier_cells:
+                self.fill_cell(cell, self.FRONTIER_COLOR, tag=self.get_frontier_tag(*cell.coordinates))
+
+        self.canvas.update()
+
+        if state.type == MazeUpdateType.WALL_REMOVED:
+            time.sleep(self.delay_millis / 1000)
 
     def create_maze_grid(self) -> None:
         """Populate the canvas with all of the walls in the current maze."""
