@@ -54,8 +54,10 @@ class MazeApp(tk.Frame):
         window.minsize(width=700, height=100)
 
         self.pack()
-        self.canvas = self.create_canvas()
-        self.stats = self.create_stats_display()
+        canvas_frame = tk.Frame(bg=self.BACKGROUND_COLOR)
+        canvas_frame.pack(side='left')
+        self.canvas = self.create_canvas(canvas_frame)
+        self.stats = self.create_stats_display(canvas_frame)
         self.animate_var = tk.IntVar()
         self.speed_scale = None
         self.create_menu()
@@ -74,20 +76,20 @@ class MazeApp(tk.Frame):
         """Setter for the animate property."""
         self.animate_var.set(1 if value else 0)
 
-    def create_canvas(self) -> tk.Canvas:
+    def create_canvas(self, parent: tk.Frame) -> tk.Canvas:
         """Create and return a graphics canvas representing the grid of cells in the maze."""
         width = self.CELL_WIDTH * self.width + self.BORDER_OFFSET
         height = self.CELL_HEIGHT * self.height + self.BORDER_OFFSET
-        canvas = tk.Canvas(width=width, height=height, borderwidth=0)
+        canvas = tk.Canvas(parent, width=width, height=height, borderwidth=0)
         canvas.bind('<Button-1>', self.click_handler)
         canvas.bind('<Motion>', self.motion_handler)
         canvas.pack(side='top')
         return canvas
 
     @classmethod
-    def create_stats_display(cls) -> tk.Label:
+    def create_stats_display(cls, parent: tk.Frame) -> tk.Label:
         """Create and return a graphics element containing statistics about the current maze."""
-        stats = tk.Label(pady=5, bg=cls.BACKGROUND_COLOR, fg=cls.TEXT_COLOR, font=cls.FONT)
+        stats = tk.Label(parent, pady=5, bg=cls.BACKGROUND_COLOR, fg=cls.TEXT_COLOR, font=cls.FONT)
         stats.pack(side='top')
         return stats
 
@@ -95,25 +97,24 @@ class MazeApp(tk.Frame):
         """Create a graphics element containing controls for the user to interact with the program."""
         menu = tk.Frame(bg=self.BACKGROUND_COLOR, pady=10)
 
-        new_button = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.PATH_COLOR, font=self.FONT, padx=30,
+        new_button = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.PATH_COLOR, font=self.FONT, padx=20, pady=10,
                               text='[ New Maze ]', cursor='hand2')
         new_button.bind('<Button-1>', self.generate_new_maze)
-        new_button.pack(side='left')
+        new_button.pack(side='top')
 
-        animate_button = tk.Checkbutton(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, padx=5,
-                                        text='Animate\t\t', variable=self.animate_var, command=self.toggle_animate)
-        animate_button.pack(side='left')
+        animate_button = tk.Checkbutton(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, pady=20,
+                                        text='Animate', variable=self.animate_var, command=self.toggle_animate)
+        animate_button.pack(side='top')
         self.animate = True
 
         self.speed_scale = tk.Scale(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, orient=tk.HORIZONTAL,
                                     length=150, from_=10, to=100, showvalue=0, command=self.update_animation_delay)
-        self.speed_scale.pack(side='left')
+        self.speed_scale.pack(side='top')
 
-        delay_label = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, padx=10,
-                               text='Delay')
-        delay_label.pack(side='left')
+        delay_label = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, text='Delay')
+        delay_label.pack(side='top')
 
-        menu.pack(side='top')
+        menu.pack(side='left')
 
     @staticmethod
     def get_wall_tag(row: int, column: int, direction: Direction) -> str:
