@@ -37,7 +37,7 @@ class MazeAppMenu(tk.Frame):
     """Class containing state and graphics for rendering the menu portion of the UI."""
 
     def __init__(self, app: 'MazeApp', **kwargs) -> None:
-        super().__init__(bg=BACKGROUND_COLOR, padx=10, **kwargs)
+        super().__init__(bg=BACKGROUND_COLOR, padx=10, pady=10, **kwargs)
         self.app = app
 
         self.algorithm_var = tk.StringVar()
@@ -192,6 +192,7 @@ class MazeApp(tk.Frame):
         canvas_frame.pack(side='left')
         self.canvas = self.create_canvas(canvas_frame)
         self.stats = self.create_stats_display(canvas_frame)
+        self.create_horizontal_spacer()
         self.menu = MazeAppMenu(self)
         self.menu.pack(side='left')
 
@@ -219,9 +220,13 @@ class MazeApp(tk.Frame):
     @staticmethod
     def create_stats_display(parent: tk.Frame) -> tk.Label:
         """Create and return a graphics element containing statistics about the current maze."""
-        stats = tk.Label(parent, pady=5, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT)
+        stats = tk.Label(parent, padx=10, pady=10, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, width=62)
         stats.pack(side='top')
         return stats
+
+    @staticmethod
+    def create_horizontal_spacer() -> None:
+        tk.Label(bg=BACKGROUND_COLOR, width=2).pack(side='left')
 
     @staticmethod
     def get_wall_tag(row: int, column: int, direction: Direction) -> str:
