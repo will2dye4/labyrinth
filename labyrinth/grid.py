@@ -1,5 +1,6 @@
 """Classes for creating and working with grids of cells."""
 
+from enum import Enum
 from typing import Set, Tuple
 
 from labyrinth.graph import Graph
@@ -32,6 +33,36 @@ class Cell:
     def coordinates(self) -> Tuple[int, int]:
         """Return the cell's row and column as a two-tuple."""
         return self.row, self.column
+
+
+class Direction(Enum):
+    """Enumeration of the directions allowed for movement within a grid."""
+    N = (0, -1)
+    S = (0, 1)
+    E = (1, 0)
+    W = (-1, 0)
+
+    @property
+    def dx(self) -> int:
+        """Return the change in x (column) when moving in this direction."""
+        return self.value[0]
+
+    @property
+    def dy(self) -> int:
+        """Return the change in y (row) when moving in this direction."""
+        return self.value[1]
+
+    @property
+    def opposite(self) -> 'Direction':
+        """Return the direction opposite to this direction."""
+        return next(d for d in self.__class__ if (d.dx, d.dy) == (-self.dx, -self.dy))
+
+    @classmethod
+    def between(cls, start_cell: Cell, end_cell: Cell) -> 'Direction':
+        """Return the direction between the given start and end cells, which are assumed to be adjacent."""
+        dx = end_cell.column - start_cell.column
+        dy = end_cell.row - start_cell.row
+        return next(d for d in cls if (d.dx, d.dy) == (dx, dy))
 
 
 class Grid:
@@ -81,6 +112,6 @@ class Grid:
             raise ValueError(f'Invalid column {column!r}')
         return self._cells[(row, column)]
 
-    def neighbors(self, row: int, column: int) -> Set[Cell]:
-        """Return a set of all neighbors of the cell in the grid at the given row and column."""
-        return self._graph.neighbors(self[row, column])
+    def neighbors(self, cell: Cell) -> Set[Cell]:
+        """Return a set of all neighbors of the given cell in the grid."""
+        return self._graph.neighbors(cell)

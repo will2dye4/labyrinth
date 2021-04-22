@@ -5,6 +5,12 @@ import argparse
 import os
 import sys
 
+from labyrinth.generate import (
+    KruskalsGenerator,
+    PrimsGenerator,
+    RandomDepthFirstSearchGenerator,
+    WilsonsGenerator,
+)
 from labyrinth.maze import Maze
 from labyrinth.ui import MazeApp
 
@@ -12,10 +18,18 @@ from labyrinth.ui import MazeApp
 class LabyrinthMain:
     """Main class for the labyrinth program."""
 
+    ALGORITHM_CHOICES = {
+        'kruskal': KruskalsGenerator,
+        'prim': PrimsGenerator,
+        'dfs': RandomDepthFirstSearchGenerator,
+        'wilson': WilsonsGenerator,
+    }
+
     def __init__(self, gui: bool = False) -> None:
         """Initialize a LabyrinthMain."""
         parsed_args = self.parse_args(sys.argv[1:])
         self.gui = gui or parsed_args.gui
+        self.generator = self.ALGORITHM_CHOICES[parsed_args.algorithm]()
         self.width, self.height = parsed_args.dimensions
 
     @classmethod
@@ -24,6 +38,8 @@ class LabyrinthMain:
         parser = argparse.ArgumentParser(description='Generate mazes.')
         parser.add_argument('dimensions', nargs='?', default='25x25', type=cls.parse_dimensions,
                             help='Dimensions of the maze to generate (e.g., 10x10)')
+        parser.add_argument('-a', '--algorithm', choices=sorted(cls.ALGORITHM_CHOICES.keys()), default='dfs',
+                            help='The algorithm to use to generate the maze')
         parser.add_argument('-g', '--gui', '--ui', action='store_true',
                             help='Display a GUI showing the maze being generated')
         return parser.parse_args(args)
@@ -40,7 +56,7 @@ class LabyrinthMain:
     def run_gui(self) -> None:
         """Launch a graphical maze generator window."""
         os.environ['TK_SILENCE_DEPRECATION'] = '1'
-        app = MazeApp(width=self.width, height=self.height)
+        app = MazeApp(width=self.width, height=self.height, generator=self.generator)
         app.run()
 
     def run(self) -> None:
@@ -48,7 +64,7 @@ class LabyrinthMain:
         if self.gui:
             self.run_gui()
         else:
-            print(Maze(self.width, self.height))
+            print(Maze(self.width, self.height, generator=self.generator))
 
 
 def main(gui: bool = False) -> None:

@@ -35,6 +35,15 @@ class Graph(Generic[T]):
         return set(self._adjacencies.keys())
 
     @property
+    def edges(self) -> Set[Tuple[T, T]]:
+        edges = set()
+        for vertex, neighbors in self._adjacencies.items():
+            for neighbor in neighbors:
+                if not self.bidirectional or (neighbor, vertex) not in edges:
+                    edges.add((vertex, neighbor))
+        return edges
+
+    @property
     def size(self) -> int:
         """Return the number of vertices in this graph."""
         return len(self._adjacencies)

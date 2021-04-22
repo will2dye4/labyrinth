@@ -5,14 +5,16 @@ import time
 import tkinter as tk
 
 from labyrinth.generate import (
+    KruskalsGenerator,
     MazeGenerator,
     MazeUpdate,
     MazeUpdateType,
     PrimsGenerator,
     RandomDepthFirstSearchGenerator,
+    WilsonsGenerator,
 )
-from labyrinth.grid import Cell
-from labyrinth.maze import Direction, Maze
+from labyrinth.grid import Cell, Direction
+from labyrinth.maze import Maze
 
 
 DEFAULT_STEP_DELAY_MILLIS = 50
@@ -22,6 +24,7 @@ FONT = ('Arial', 20)
 BACKGROUND_COLOR = '#444444'
 FRONTIER_COLOR = '#97F593'
 GENERATE_PATH_COLOR = '#F5A676'
+INITIAL_CELL_COLOR = '#AAAAAA'
 PATH_COLOR = '#C3E3F7'
 TEXT_COLOR = 'white'
 
@@ -47,6 +50,8 @@ class MazeAppMenu(tk.Frame):
 
         self.pack()
         self.create_menu()
+
+        self.generator_type = self.app.generator.__class__
 
     @property
     def animate(self) -> bool:
@@ -80,7 +85,7 @@ class MazeAppMenu(tk.Frame):
 
         self.create_spacer()
 
-        algorithm_button = LabelButton(self, 'Algorithm')
+        algorithm_button = LabelButton(self, 'Algorithm...')
         algorithm_button.bind('<Button-1>', self.choose_algorithm)
         algorithm_button.pack(side='top')
 
@@ -97,7 +102,7 @@ class MazeAppMenu(tk.Frame):
                                     length=150, from_=10, to=100, command=self.update_animation_delay)
         self.speed_scale.pack(side='top')
 
-        delay_label = tk.Label(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='Delay')
+        delay_label = tk.Label(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='Delay (ms)')
         delay_label.pack(side='top')
 
     def create_spacer(self, parent: Optional[Any] = None, height: int = 1) -> None:
@@ -159,12 +164,16 @@ class MazeApp(tk.Frame):
     TICK_DELAY_MILLIS = 500
 
     DEFAULT_GENERATOR = RandomDepthFirstSearchGenerator
+
     SUPPORTED_GENERATORS = {
-        PrimsGenerator: 'Prim\'s Algorithm',
-        RandomDepthFirstSearchGenerator: 'Random Depth First Search',
+        KruskalsGenerator: "Kruskal's Algorithm",
+        PrimsGenerator: "Prim's Algorithm",
+        RandomDepthFirstSearchGenerator: "Random Depth First Search",
+        WilsonsGenerator: "Wilson's Algorithm",
     }
 
-    def __init__(self, master: tk.Tk = None, width: int = 10, height: int = 10, validate_moves: bool = True) -> None:
+    def __init__(self, master: tk.Tk = None, width: int = 10, height: int = 10,
+                 generator: Optional[MazeGenerator] = None, validate_moves: bool = True) -> None:
         """Initialize a MazeApp instance."""
         if master is None:
             master = tk.Tk()
@@ -179,7 +188,7 @@ class MazeApp(tk.Frame):
         self.generating_maze = False
         self.drawing_path = False
         self.choosing_algorithm = False
-        self._generator = None
+        self._generator = generator
         self.maze = None
         self.path = []
 
@@ -193,6 +202,7 @@ class MazeApp(tk.Frame):
         self.canvas = self.create_canvas(canvas_frame)
         self.stats = self.create_stats_display(canvas_frame)
         self.create_horizontal_spacer()
+        self.menu = None
         self.menu = MazeAppMenu(self)
         self.menu.pack(side='left')
 
@@ -201,10 +211,14 @@ class MazeApp(tk.Frame):
         self.generate_new_maze(generate=False)
 
     @property
+    def generator_type(self) -> Type[MazeGenerator]:
+        return self.DEFAULT_GENERATOR if self.menu is None else self.menu.generator_type
+
+    @property
     def generator(self) -> MazeGenerator:
         """Return an instance of a MazeGenerator subclass to use for generating mazes."""
-        if self._generator is None or self._generator.__class__ != self.menu.generator_type:
-            self._generator = self.menu.generator_type()
+        if self._generator is None or self._generator.__class__ != self.generator_type:
+            self._generator = self.generator_type()
         return self._generator
 
     def create_canvas(self, parent: tk.Frame) -> tk.Canvas:
@@ -234,7 +248,7 @@ class MazeApp(tk.Frame):
         return f'{row}_{column}_{direction.name}'
 
     @staticmethod
-    def get_frontier_tag(row: int, column: int) -> str:
+    def get_cell_tag(row: int, column: int) -> str:
         """Return a formatted tag suitable for use when drawing frontier cells on the canvas."""
         return f'{row}_{column}'
 
@@ -300,11 +314,7 @@ class MazeApp(tk.Frame):
     def update_maze(self, state: MazeUpdate) -> None:
         """Event listener for the maze generator that updates the UI when the state changes."""
         if state.type == MazeUpdateType.WALL_REMOVED:
-            direction = Direction.between(state.start_cell, state.end_cell)
-            wall_tag = self.get_wall_tag(state.start_cell.row, state.start_cell.column, direction)
-            self.canvas.delete(wall_tag)
-            opposite_wall_tag = self.get_wall_tag(state.end_cell.row, state.end_cell.column, direction.opposite)
-            self.canvas.delete(opposite_wall_tag)
+            self.remove_wall(state.start_cell, state.end_cell)
             if not self.path or state.start_cell != self.path[-1]:
                 self.clear_path()
                 self.path.append(state.start_cell)
@@ -312,14 +322,26 @@ class MazeApp(tk.Frame):
             self.path.append(state.end_cell)
             self.fill_cell(state.end_cell, GENERATE_PATH_COLOR)
         elif state.type == MazeUpdateType.CELL_MARKED:
-            self.canvas.delete(self.get_frontier_tag(*state.start_cell.coordinates))
+            self.canvas.delete(self.get_cell_tag(*state.start_cell.coordinates))
             for cell in state.new_frontier_cells:
-                self.fill_cell(cell, FRONTIER_COLOR, tag=self.get_frontier_tag(*cell.coordinates))
+                self.fill_cell(cell, FRONTIER_COLOR, tag=self.get_cell_tag(*cell.coordinates))
 
         self.canvas.update()
 
         if state.type == MazeUpdateType.WALL_REMOVED:
             time.sleep(self.menu.delay_millis / 1000)
+
+    def remove_wall(self, start_cell: Cell, end_cell: Cell) -> None:
+        """Remove the wall between the given start cell and end cell, also clearing any color from the cells."""
+        direction = Direction.between(start_cell, end_cell)
+        wall_tag = self.get_wall_tag(start_cell.row, start_cell.column, direction)
+        self.canvas.delete(wall_tag)
+        opposite_wall_tag = self.get_wall_tag(end_cell.row, end_cell.column, direction.opposite)
+        self.canvas.delete(opposite_wall_tag)
+        start_cell_tag = self.get_cell_tag(start_cell.row, start_cell.column)
+        self.canvas.delete(start_cell_tag)
+        end_cell_tag = self.get_cell_tag(end_cell.row, end_cell.column)
+        self.canvas.delete(end_cell_tag)
 
     def create_maze_grid(self) -> None:
         """Populate the canvas with all of the walls in the current maze."""
@@ -345,8 +367,11 @@ class MazeApp(tk.Frame):
                     if direction not in cell.open_walls:
                         if width_predicate(row, column):
                             width = self.BORDER_WIDTH
-                        tag = self.get_wall_tag(row, column, direction)
-                        self.canvas.create_line(*coordinates, width=width, tags=tag)
+                        wall_tag = self.get_wall_tag(row, column, direction)
+                        self.canvas.create_line(*coordinates, width=width, tags=wall_tag)
+                    if not cell.open_walls:
+                        cell_tag = self.get_cell_tag(row, column)
+                        self.fill_cell(cell, INITIAL_CELL_COLOR, cell_tag)
 
     def get_selected_cell_coordinates(self, event: tk.Event) -> Tuple[int, int]:
         """Return the coordinates of the selected cell based on the (x, y) position of the given event."""
@@ -370,7 +395,7 @@ class MazeApp(tk.Frame):
                     # print('Can only undo the last move')
                     return
                 add = False
-            elif self.validate_moves and clicked_cell not in self.maze.neighbors(last_cell.row, last_cell.column):
+            elif self.validate_moves and clicked_cell not in self.maze.neighbors(last_cell):
                 # print('Path must be continuous')
                 return
             elif self.validate_moves:
