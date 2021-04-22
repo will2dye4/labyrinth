@@ -1,10 +1,16 @@
 """Graphical user interface for the labyrinth program."""
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Type
 import time
 import tkinter as tk
 
-from labyrinth.generate import MazeUpdate, MazeUpdateType, PrimsGenerator, RandomDepthFirstSearchGenerator
+from labyrinth.generate import (
+    MazeGenerator,
+    MazeUpdate,
+    MazeUpdateType,
+    PrimsGenerator,
+    RandomDepthFirstSearchGenerator,
+)
 from labyrinth.grid import Cell
 from labyrinth.maze import Direction, Maze
 
@@ -29,6 +35,9 @@ class MazeApp(tk.Frame):
     DEFAULT_STEP_DELAY_MILLIS = 50
     TICK_DELAY_MILLIS = 500
 
+    DEFAULT_GENERATOR = RandomDepthFirstSearchGenerator
+    SUPPORTED_GENERATORS = [PrimsGenerator, RandomDepthFirstSearchGenerator]
+
     def __init__(self, master: tk.Tk = None, width: int = 10, height: int = 10, validate_moves: bool = True,
                  delay_millis: int = DEFAULT_STEP_DELAY_MILLIS) -> None:
         """Initialize a MazeApp instance."""
@@ -45,6 +54,7 @@ class MazeApp(tk.Frame):
 
         self.generating_maze = False
         self.drawing_path = False
+        self.choosing_algorithm = False
         self.generator = None
         self.maze = None
         self.path = []
@@ -58,6 +68,7 @@ class MazeApp(tk.Frame):
         canvas_frame.pack(side='left')
         self.canvas = self.create_canvas(canvas_frame)
         self.stats = self.create_stats_display(canvas_frame)
+        self.algorithm_var = tk.StringVar()
         self.animate_var = tk.IntVar()
         self.speed_scale = None
         self.create_menu()
@@ -75,6 +86,22 @@ class MazeApp(tk.Frame):
     def animate(self, value: bool) -> None:
         """Setter for the animate property."""
         self.animate_var.set(1 if value else 0)
+
+    @property
+    def generator_type(self) -> Type[MazeGenerator]:
+        """Return a MazeGenerator subclass indicating the current maze generator type."""
+        class_name = self.algorithm_var.get()
+        for generator_cls in self.SUPPORTED_GENERATORS:
+            if generator_cls.__name__ == class_name:
+                return generator_cls
+        return self.DEFAULT_GENERATOR
+
+    @generator_type.setter
+    def generator_type(self, value: Type[MazeGenerator]) -> None:
+        """Setter for the generator_type property."""
+        if self.generator is None or value != self.generator.__class__:
+            self.algorithm_var.set(value.__name__)
+            self.generator = value()
 
     def create_canvas(self, parent: tk.Frame) -> tk.Canvas:
         """Create and return a graphics canvas representing the grid of cells in the maze."""
@@ -101,6 +128,11 @@ class MazeApp(tk.Frame):
                               text='[ New Maze ]', cursor='hand2')
         new_button.bind('<Button-1>', self.generate_new_maze)
         new_button.pack(side='top')
+
+        algorithm_button = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.PATH_COLOR, font=self.FONT, padx=20,
+                                    pady=10, text='[ Algorithm ]', cursor='hand2')
+        algorithm_button.bind('<Button-1>', self.choose_algorithm)
+        algorithm_button.pack(side='top')
 
         animate_button = tk.Checkbutton(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, pady=20,
                                         text='Animate', variable=self.animate_var, command=self.toggle_animate)
@@ -161,6 +193,45 @@ class MazeApp(tk.Frame):
         """Update the current animation delay (in milliseconds) to the given value."""
         self.delay_millis = int(delay_in_millis)
 
+    def choose_algorithm(self, event: tk.Event) -> None:
+        """Open a dialog box allowing the user to change the maze generation algorithm."""
+        if self.choosing_algorithm:
+            return
+
+        self.choosing_algorithm = True
+        algorithm_window = tk.Toplevel(bg=self.BACKGROUND_COLOR)
+        algorithm_window.title('Choose Maze Generation Algorithm')
+        algorithm_window.transient(self)
+
+        dfs_button = self.create_algorithm_radio_button(algorithm_window, 'Random Depth First Search',
+                                                        RandomDepthFirstSearchGenerator)
+        dfs_button.pack(side='top')
+        prims_button = self.create_algorithm_radio_button(algorithm_window, 'Prim\'s Algorithm', PrimsGenerator)
+        prims_button.pack(side='top')
+
+        def dismiss_algorithm_window(e: Optional[tk.Event] = None) -> None:
+            algorithm_window.withdraw()
+            self.choosing_algorithm = False
+
+        ok_button = tk.Label(algorithm_window, bg=self.BACKGROUND_COLOR, fg=self.PATH_COLOR, font=self.FONT, padx=20,
+                             pady=10, text='[ OK ]', cursor='hand2')
+        ok_button.bind('<Button-1>', dismiss_algorithm_window)
+        ok_button.pack(side='top')
+
+        algorithm_window.protocol('WM_DELETE_WINDOW', dismiss_algorithm_window)
+
+    def create_algorithm_radio_button(self, parent: tk.Toplevel, text: str, generator_cls: Type[MazeGenerator]) -> tk.Radiobutton:
+        button = tk.Radiobutton(parent, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, padx=20, pady=5,
+                                selectcolor=self.PATH_COLOR, variable=self.algorithm_var, text=text,
+                                value=generator_cls.__name__, command=self.update_maze_generator)
+        if generator_cls == self.generator_type:
+            button.select()
+        return button
+
+    def update_maze_generator(self) -> None:
+        """Event handler invoked when a maze algorithm is selected."""
+        self.generator = self.generator_type()
+
     def generate_new_maze(self, event: Optional[tk.Event] = None, generate: bool = True) -> None:
         """Create a new blank maze, and optionally generate paths through it."""
         self.clear_path()
@@ -174,8 +245,7 @@ class MazeApp(tk.Frame):
     def generate_current_maze(self, event: Optional[tk.Event] = None) -> None:
         """Generate paths through the current maze."""
         if self.generator is None:
-            # self.generator = RandomDepthFirstSearchGenerator()
-            self.generator = PrimsGenerator()
+            self.generator_type = self.DEFAULT_GENERATOR
 
         if self.animate:
             self.generator.event_listener = self.update_maze
