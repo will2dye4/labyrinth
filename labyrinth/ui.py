@@ -1,6 +1,6 @@
 """Graphical user interface for the labyrinth program."""
 
-from typing import Optional, Tuple, Type
+from typing import Any, Optional, Tuple, Type
 import time
 import tkinter as tk
 
@@ -15,67 +15,38 @@ from labyrinth.grid import Cell
 from labyrinth.maze import Direction, Maze
 
 
-class MazeApp(tk.Frame):
-    """Class containing state and graphics elements for rendering the UI."""
+DEFAULT_STEP_DELAY_MILLIS = 50
 
-    BORDER_WIDTH = 4
-    BORDER_OFFSET = BORDER_WIDTH * 2
+FONT = ('Arial', 20)
 
-    CELL_WIDTH = 35
-    CELL_HEIGHT = CELL_WIDTH
+BACKGROUND_COLOR = '#444444'
+FRONTIER_COLOR = '#97F593'
+GENERATE_PATH_COLOR = '#F5A676'
+PATH_COLOR = '#C3E3F7'
+TEXT_COLOR = 'white'
 
-    FONT = ('Arial', 20)
 
-    BACKGROUND_COLOR = '#444444'
-    FRONTIER_COLOR = '#97F593'
-    GENERATE_PATH_COLOR = '#F5A676'
-    PATH_COLOR = '#C3E3F7'
-    TEXT_COLOR = 'white'
+class LabelButton(tk.Label):
 
-    DEFAULT_STEP_DELAY_MILLIS = 50
-    TICK_DELAY_MILLIS = 500
+    def __init__(self, parent: Any, text: str, **kwargs):
+        super().__init__(parent, text=text, bg=BACKGROUND_COLOR, fg=PATH_COLOR, font=FONT, padx=10, pady=10, bd=3,
+                         relief=tk.GROOVE, cursor='hand2', **kwargs)
 
-    DEFAULT_GENERATOR = RandomDepthFirstSearchGenerator
-    SUPPORTED_GENERATORS = [PrimsGenerator, RandomDepthFirstSearchGenerator]
 
-    def __init__(self, master: tk.Tk = None, width: int = 10, height: int = 10, validate_moves: bool = True,
-                 delay_millis: int = DEFAULT_STEP_DELAY_MILLIS) -> None:
-        """Initialize a MazeApp instance."""
-        if master is None:
-            master = tk.Tk()
-            master.title('Maze Generator')
+class MazeAppMenu(tk.Frame):
+    """Class containing state and graphics for rendering the menu portion of the UI."""
 
-        super().__init__(master)
+    def __init__(self, app: 'MazeApp', **kwargs) -> None:
+        super().__init__(bg=BACKGROUND_COLOR, padx=10, **kwargs)
+        self.app = app
 
-        self.width = width
-        self.height = height
-        self.validate_moves = validate_moves
-        self.delay_millis = delay_millis
-
-        self.generating_maze = False
-        self.drawing_path = False
-        self.choosing_algorithm = False
-        self.generator = None
-        self.maze = None
-        self.path = []
-
-        window = self.winfo_toplevel()
-        window.configure(bg=self.BACKGROUND_COLOR)
-        window.minsize(width=700, height=100)
-
-        self.pack()
-        canvas_frame = tk.Frame(bg=self.BACKGROUND_COLOR)
-        canvas_frame.pack(side='left')
-        self.canvas = self.create_canvas(canvas_frame)
-        self.stats = self.create_stats_display(canvas_frame)
         self.algorithm_var = tk.StringVar()
         self.animate_var = tk.IntVar()
+        self.delay_millis = DEFAULT_STEP_DELAY_MILLIS
         self.speed_scale = None
-        self.create_menu()
 
-        self.start_time = None
-        self.end_time = None
-        self.generate_new_maze(generate=False)
+        self.pack()
+        self.create_menu()
 
     @property
     def animate(self) -> bool:
@@ -91,17 +62,149 @@ class MazeApp(tk.Frame):
     def generator_type(self) -> Type[MazeGenerator]:
         """Return a MazeGenerator subclass indicating the current maze generator type."""
         class_name = self.algorithm_var.get()
-        for generator_cls in self.SUPPORTED_GENERATORS:
-            if generator_cls.__name__ == class_name:
-                return generator_cls
-        return self.DEFAULT_GENERATOR
+        return next(
+            (cls for cls in self.app.SUPPORTED_GENERATORS if cls.__name__ == class_name),
+            self.app.DEFAULT_GENERATOR
+        )
 
     @generator_type.setter
     def generator_type(self, value: Type[MazeGenerator]) -> None:
         """Setter for the generator_type property."""
-        if self.generator is None or value != self.generator.__class__:
-            self.algorithm_var.set(value.__name__)
-            self.generator = value()
+        self.algorithm_var.set(value.__name__)
+
+    def create_menu(self) -> None:
+        """Create a graphics element containing controls for the user to interact with the application."""
+        new_button = LabelButton(self, 'New Maze')
+        new_button.bind('<Button-1>', self.app.generate_new_maze)
+        new_button.pack(side='top')
+
+        self.create_spacer()
+
+        algorithm_button = LabelButton(self, 'Algorithm')
+        algorithm_button.bind('<Button-1>', self.choose_algorithm)
+        algorithm_button.pack(side='top')
+
+        self.create_spacer(height=3)
+
+        animate_button = tk.Checkbutton(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, padx=10, text='Animate',
+                                        variable=self.animate_var, command=self.toggle_animate)
+        animate_button.pack(side='top')
+        self.animate = True
+
+        self.create_spacer(height=2)
+
+        self.speed_scale = tk.Scale(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, orient=tk.HORIZONTAL,
+                                    length=150, from_=10, to=100, command=self.update_animation_delay)
+        self.speed_scale.pack(side='top')
+
+        delay_label = tk.Label(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='Delay')
+        delay_label.pack(side='top')
+
+    def create_spacer(self, parent: Optional[Any] = None, height: int = 1) -> None:
+        if parent is None:
+            parent = self
+
+        spacer = tk.Label(parent, bg=BACKGROUND_COLOR, height=height)
+        spacer.pack(side='top')
+
+    def toggle_animate(self) -> None:
+        """Event handler invoked when the 'Animate' checkbox's state is toggled."""
+        self.speed_scale['state'] = tk.NORMAL if self.animate else tk.DISABLED
+
+    def update_animation_delay(self, delay_in_millis: int = DEFAULT_STEP_DELAY_MILLIS) -> None:
+        """Update the current animation delay (in milliseconds) to the given value."""
+        self.delay_millis = int(delay_in_millis)
+
+    def choose_algorithm(self, event: tk.Event) -> None:
+        """Open a dialog box allowing the user to change the maze generation algorithm."""
+        if self.app.choosing_algorithm or self.app.generating_maze:
+            return
+
+        self.app.choosing_algorithm = True
+
+        algorithm_window = tk.Toplevel(bg=BACKGROUND_COLOR, padx=20, pady=10)
+        algorithm_window.title('Choose Maze Generation Algorithm')
+        algorithm_window.transient(self)
+
+        for generator_cls, button_name in self.app.SUPPORTED_GENERATORS.items():
+            button = tk.Radiobutton(algorithm_window, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, padx=5, pady=5,
+                                    selectcolor=PATH_COLOR, variable=self.algorithm_var,
+                                    text=button_name, value=generator_cls.__name__)
+            if generator_cls == self.generator_type:
+                button.select()
+            button.pack(side='top')
+
+        def dismiss_algorithm_window(e: Optional[tk.Event] = None) -> None:
+            algorithm_window.withdraw()
+            self.app.choosing_algorithm = False
+
+        self.create_spacer(algorithm_window)
+
+        ok_button = LabelButton(algorithm_window, 'OK')
+        ok_button.bind('<Button-1>', dismiss_algorithm_window)
+        ok_button.pack(side='top')
+
+        algorithm_window.protocol('WM_DELETE_WINDOW', dismiss_algorithm_window)
+
+
+class MazeApp(tk.Frame):
+    """Class containing state and graphics elements for rendering the UI."""
+
+    BORDER_WIDTH = 4
+    BORDER_OFFSET = BORDER_WIDTH * 2
+
+    CELL_WIDTH = 35
+    CELL_HEIGHT = CELL_WIDTH
+
+    TICK_DELAY_MILLIS = 500
+
+    DEFAULT_GENERATOR = RandomDepthFirstSearchGenerator
+    SUPPORTED_GENERATORS = {
+        PrimsGenerator: 'Prim\'s Algorithm',
+        RandomDepthFirstSearchGenerator: 'Random Depth First Search',
+    }
+
+    def __init__(self, master: tk.Tk = None, width: int = 10, height: int = 10, validate_moves: bool = True) -> None:
+        """Initialize a MazeApp instance."""
+        if master is None:
+            master = tk.Tk()
+            master.title('Maze Generator')
+
+        super().__init__(master)
+
+        self.width = width
+        self.height = height
+        self.validate_moves = validate_moves
+
+        self.generating_maze = False
+        self.drawing_path = False
+        self.choosing_algorithm = False
+        self._generator = None
+        self.maze = None
+        self.path = []
+
+        window = self.winfo_toplevel()
+        window.configure(bg=BACKGROUND_COLOR)
+        window.minsize(width=700, height=100)
+
+        self.pack()
+        canvas_frame = tk.Frame(bg=BACKGROUND_COLOR)
+        canvas_frame.pack(side='left')
+        self.canvas = self.create_canvas(canvas_frame)
+        self.stats = self.create_stats_display(canvas_frame)
+        self.menu = MazeAppMenu(self)
+        self.menu.pack(side='left')
+
+        self.start_time = None
+        self.end_time = None
+        self.generate_new_maze(generate=False)
+
+    @property
+    def generator(self) -> MazeGenerator:
+        """Return an instance of a MazeGenerator subclass to use for generating mazes."""
+        if self._generator is None or self._generator.__class__ != self.menu.generator_type:
+            self._generator = self.menu.generator_type()
+        return self._generator
 
     def create_canvas(self, parent: tk.Frame) -> tk.Canvas:
         """Create and return a graphics canvas representing the grid of cells in the maze."""
@@ -113,40 +216,12 @@ class MazeApp(tk.Frame):
         canvas.pack(side='top')
         return canvas
 
-    @classmethod
-    def create_stats_display(cls, parent: tk.Frame) -> tk.Label:
+    @staticmethod
+    def create_stats_display(parent: tk.Frame) -> tk.Label:
         """Create and return a graphics element containing statistics about the current maze."""
-        stats = tk.Label(parent, pady=5, bg=cls.BACKGROUND_COLOR, fg=cls.TEXT_COLOR, font=cls.FONT)
+        stats = tk.Label(parent, pady=5, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT)
         stats.pack(side='top')
         return stats
-
-    def create_menu(self) -> None:
-        """Create a graphics element containing controls for the user to interact with the program."""
-        menu = tk.Frame(bg=self.BACKGROUND_COLOR, pady=10)
-
-        new_button = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.PATH_COLOR, font=self.FONT, padx=20, pady=10,
-                              text='[ New Maze ]', cursor='hand2')
-        new_button.bind('<Button-1>', self.generate_new_maze)
-        new_button.pack(side='top')
-
-        algorithm_button = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.PATH_COLOR, font=self.FONT, padx=20,
-                                    pady=10, text='[ Algorithm ]', cursor='hand2')
-        algorithm_button.bind('<Button-1>', self.choose_algorithm)
-        algorithm_button.pack(side='top')
-
-        animate_button = tk.Checkbutton(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, pady=20,
-                                        text='Animate', variable=self.animate_var, command=self.toggle_animate)
-        animate_button.pack(side='top')
-        self.animate = True
-
-        self.speed_scale = tk.Scale(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, orient=tk.HORIZONTAL,
-                                    length=150, from_=10, to=100, showvalue=0, command=self.update_animation_delay)
-        self.speed_scale.pack(side='top')
-
-        delay_label = tk.Label(menu, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, text='Delay')
-        delay_label.pack(side='top')
-
-        menu.pack(side='left')
 
     @staticmethod
     def get_wall_tag(row: int, column: int, direction: Direction) -> str:
@@ -185,55 +260,11 @@ class MazeApp(tk.Frame):
                 else:
                     self.select_cell(*coordinates)
 
-    def toggle_animate(self) -> None:
-        """Event handler invoked when the 'Animate' checkbox's state is toggled."""
-        self.speed_scale['state'] = tk.NORMAL if self.animate else tk.DISABLED
-
-    def update_animation_delay(self, delay_in_millis: int = DEFAULT_STEP_DELAY_MILLIS) -> None:
-        """Update the current animation delay (in milliseconds) to the given value."""
-        self.delay_millis = int(delay_in_millis)
-
-    def choose_algorithm(self, event: tk.Event) -> None:
-        """Open a dialog box allowing the user to change the maze generation algorithm."""
-        if self.choosing_algorithm:
-            return
-
-        self.choosing_algorithm = True
-        algorithm_window = tk.Toplevel(bg=self.BACKGROUND_COLOR)
-        algorithm_window.title('Choose Maze Generation Algorithm')
-        algorithm_window.transient(self)
-
-        dfs_button = self.create_algorithm_radio_button(algorithm_window, 'Random Depth First Search',
-                                                        RandomDepthFirstSearchGenerator)
-        dfs_button.pack(side='top')
-        prims_button = self.create_algorithm_radio_button(algorithm_window, 'Prim\'s Algorithm', PrimsGenerator)
-        prims_button.pack(side='top')
-
-        def dismiss_algorithm_window(e: Optional[tk.Event] = None) -> None:
-            algorithm_window.withdraw()
-            self.choosing_algorithm = False
-
-        ok_button = tk.Label(algorithm_window, bg=self.BACKGROUND_COLOR, fg=self.PATH_COLOR, font=self.FONT, padx=20,
-                             pady=10, text='[ OK ]', cursor='hand2')
-        ok_button.bind('<Button-1>', dismiss_algorithm_window)
-        ok_button.pack(side='top')
-
-        algorithm_window.protocol('WM_DELETE_WINDOW', dismiss_algorithm_window)
-
-    def create_algorithm_radio_button(self, parent: tk.Toplevel, text: str, generator_cls: Type[MazeGenerator]) -> tk.Radiobutton:
-        button = tk.Radiobutton(parent, bg=self.BACKGROUND_COLOR, fg=self.TEXT_COLOR, font=self.FONT, padx=20, pady=5,
-                                selectcolor=self.PATH_COLOR, variable=self.algorithm_var, text=text,
-                                value=generator_cls.__name__, command=self.update_maze_generator)
-        if generator_cls == self.generator_type:
-            button.select()
-        return button
-
-    def update_maze_generator(self) -> None:
-        """Event handler invoked when a maze algorithm is selected."""
-        self.generator = self.generator_type()
-
     def generate_new_maze(self, event: Optional[tk.Event] = None, generate: bool = True) -> None:
         """Create a new blank maze, and optionally generate paths through it."""
+        if self.generating_maze:
+            return
+
         self.clear_path()
         self.maze = Maze(self.width, self.height, generator=None)
         self.start_time = None
@@ -244,10 +275,7 @@ class MazeApp(tk.Frame):
 
     def generate_current_maze(self, event: Optional[tk.Event] = None) -> None:
         """Generate paths through the current maze."""
-        if self.generator is None:
-            self.generator_type = self.DEFAULT_GENERATOR
-
-        if self.animate:
+        if self.menu.animate:
             self.generator.event_listener = self.update_maze
         else:
             self.generator.event_listener = None
@@ -258,7 +286,7 @@ class MazeApp(tk.Frame):
         self.clear_path()
         self.generating_maze = False
 
-        if not self.animate:
+        if not self.menu.animate:
             self.create_maze_grid()
 
         self.start_time = time.time()
@@ -275,18 +303,18 @@ class MazeApp(tk.Frame):
             if not self.path or state.start_cell != self.path[-1]:
                 self.clear_path()
                 self.path.append(state.start_cell)
-                self.fill_cell(state.start_cell, self.GENERATE_PATH_COLOR)
+                self.fill_cell(state.start_cell, GENERATE_PATH_COLOR)
             self.path.append(state.end_cell)
-            self.fill_cell(state.end_cell, self.GENERATE_PATH_COLOR)
+            self.fill_cell(state.end_cell, GENERATE_PATH_COLOR)
         elif state.type == MazeUpdateType.CELL_MARKED:
             self.canvas.delete(self.get_frontier_tag(*state.start_cell.coordinates))
             for cell in state.new_frontier_cells:
-                self.fill_cell(cell, self.FRONTIER_COLOR, tag=self.get_frontier_tag(*cell.coordinates))
+                self.fill_cell(cell, FRONTIER_COLOR, tag=self.get_frontier_tag(*cell.coordinates))
 
         self.canvas.update()
 
         if state.type == MazeUpdateType.WALL_REMOVED:
-            time.sleep(self.delay_millis / 1000)
+            time.sleep(self.menu.delay_millis / 1000)
 
     def create_maze_grid(self) -> None:
         """Populate the canvas with all of the walls in the current maze."""
@@ -346,7 +374,7 @@ class MazeApp(tk.Frame):
                     # print(f'Invalid move (through {direction.name} wall)')
                     return
 
-        color = self.PATH_COLOR if add else 'white'
+        color = PATH_COLOR if add else 'white'
         self.fill_cell(clicked_cell, color)
 
         if add:
