@@ -23,25 +23,22 @@ class MazeSolver:
         if self.maze is None:
             raise ValueError('No current maze to construct a junction graph from!')
 
-        start_cell = self.root
-        graph = Graph()
-        graph.add_vertex(start_cell)
-
+        junction_graph = Graph()
         visited = defaultdict(bool)
-        stack = [start_cell]
-        while stack:
-            cell = stack.pop()
-            if not visited[cell]:
-                visited[cell] = True
-                for neighbor in self.maze.neighbors(cell):
-                    direction = Direction.between(cell, neighbor)
-                    if direction in cell.open_walls and not visited[neighbor]:
-                        while self.is_corridor_cell(neighbor):
-                            neighbor = self.maze.neighbor(neighbor, direction)
-                        graph.add_vertex(neighbor)
-                        graph.add_edge(cell, neighbor)
-                        stack.append(neighbor)
-        return graph
+
+        def junction_visitor(cell: Cell) -> None:
+            visited[cell] = True
+            for neighbor in self.maze.neighbors(cell):
+                direction = Direction.between(cell, neighbor)
+                if direction in cell.open_walls and not visited[neighbor]:
+                    while self.is_corridor_cell(neighbor):
+                        neighbor = self.maze.neighbor(neighbor, direction)
+                    junction_graph.add_vertex(cell)
+                    junction_graph.add_vertex(neighbor)
+                    junction_graph.add_edge(cell, neighbor)
+
+        self.maze.depth_first_search(self.root, junction_visitor)
+        return junction_graph
 
     @staticmethod
     def is_corridor_cell(cell: Cell) -> bool:
@@ -53,8 +50,7 @@ class MazeSolver:
         """Return True if the given cell is part of the solution to the maze, False otherwise."""
         while cell in self.prev_cells:
             cell = self.prev_cells[cell]
-        result = cell == self.root
-        return result
+        return cell == self.root
 
     @staticmethod
     def junction_direction(start_junction: Cell, end_junction: Cell) -> Direction:

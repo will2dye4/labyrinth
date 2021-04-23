@@ -230,6 +230,11 @@ class MazeApp(tk.Frame):
             self._generator = self.generator_type()
         return self._generator
 
+    @property
+    def is_solved(self) -> bool:
+        """Return True if the current maze is solved, False otherwise."""
+        return self.path and (self.path[-1].row, self.path[-1].column) == (self.height - 1, self.width - 1)
+
     def create_canvas(self, parent: tk.Frame) -> tk.Canvas:
         """Create and return a graphics canvas representing the grid of cells in the maze."""
         width = self.CELL_WIDTH * self.width + self.BORDER_OFFSET
@@ -267,8 +272,7 @@ class MazeApp(tk.Frame):
             return
         if self.drawing_path:
             self.drawing_path = False
-            if self.end_time is None and self.path and \
-                    (self.path[-1].row, self.path[-1].column) == (self.height - 1, self.width - 1):
+            if self.end_time is None and self.is_solved:
                 self.end_time = time.time()
         else:
             coordinates = self.get_selected_cell_coordinates(event)
@@ -384,7 +388,8 @@ class MazeApp(tk.Frame):
 
     def solve_maze(self, event: Optional[tk.Event] = None) -> None:
         """Solve the current maze."""
-        if self.solving_maze or self.generating_maze or self.choosing_algorithm or not self.maze[0, 0].open_walls:
+        if (self.solving_maze or self.generating_maze or self.choosing_algorithm
+                or self.is_solved or not self.maze[0, 0].open_walls):
             return
 
         self.solving_maze = True
