@@ -15,6 +15,7 @@ from labyrinth.generate import (
 )
 from labyrinth.grid import Cell, Direction
 from labyrinth.maze import Maze
+from labyrinth.solve import MazeSolver
 
 
 DEFAULT_STEP_DELAY_MILLIS = 50
@@ -88,6 +89,12 @@ class MazeAppMenu(tk.Frame):
         algorithm_button = LabelButton(self, 'Algorithm...')
         algorithm_button.bind('<Button-1>', self.choose_algorithm)
         algorithm_button.pack(side='top')
+
+        self.create_spacer()
+
+        solve_button = LabelButton(self, 'Solve')
+        solve_button.bind('<Button-1>', self.app.solve_maze)
+        solve_button.pack(side='top')
 
         self.create_spacer(height=3)
 
@@ -188,7 +195,9 @@ class MazeApp(tk.Frame):
         self.generating_maze = False
         self.drawing_path = False
         self.choosing_algorithm = False
+        self.solving_maze = False
         self._generator = generator
+        self.solver = MazeSolver()
         self.maze = None
         self.path = []
 
@@ -254,7 +263,7 @@ class MazeApp(tk.Frame):
 
     def click_handler(self, event: tk.Event) -> None:
         """Event handler for click events on the canvas."""
-        if self.generating_maze:
+        if self.generating_maze or self.solving_maze:
             return
         if self.drawing_path:
             self.drawing_path = False
@@ -268,7 +277,7 @@ class MazeApp(tk.Frame):
 
     def motion_handler(self, event: tk.Event) -> None:
         """Event handler for mouse motion events on the canvas."""
-        if self.generating_maze:
+        if self.generating_maze or self.solving_maze:
             return
         if self.drawing_path:
             coordinates = self.get_selected_cell_coordinates(event)
@@ -281,7 +290,7 @@ class MazeApp(tk.Frame):
 
     def generate_new_maze(self, event: Optional[tk.Event] = None, generate: bool = True) -> None:
         """Create a new blank maze, and optionally generate paths through it."""
-        if self.generating_maze:
+        if self.generating_maze or self.solving_maze:
             return
 
         self.clear_path()
@@ -372,6 +381,23 @@ class MazeApp(tk.Frame):
                     if not cell.open_walls:
                         cell_tag = self.get_cell_tag(row, column)
                         self.fill_cell(cell, INITIAL_CELL_COLOR, cell_tag)
+
+    def solve_maze(self, event: Optional[tk.Event] = None) -> None:
+        """Solve the current maze."""
+        if self.solving_maze or self.generating_maze or self.choosing_algorithm or not self.maze[0, 0].open_walls:
+            return
+
+        self.solving_maze = True
+        self.start_time = None
+        self.clear_path()
+        path = self.solver.solve(self.maze)
+        for cell in path:
+            self.path.append(cell)
+            self.fill_cell(cell, PATH_COLOR)
+            if self.menu.animate:
+                self.canvas.update()
+                time.sleep(self.menu.delay_millis / 1000)
+        self.solving_maze = False
 
     def get_selected_cell_coordinates(self, event: tk.Event) -> Tuple[int, int]:
         """Return the coordinates of the selected cell based on the (x, y) position of the given event."""

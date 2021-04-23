@@ -1,4 +1,4 @@
-"""Generate mazes using the random depth-first search algorithm."""
+"""Generate mazes using a variety of different algorithms."""
 
 from collections import defaultdict
 from dataclasses import dataclass

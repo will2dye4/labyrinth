@@ -1,7 +1,7 @@
 """Classes for creating and working with grids of cells."""
 
 from enum import Enum
-from typing import Set, Tuple
+from typing import Optional, Set, Tuple
 
 from labyrinth.graph import Graph
 
@@ -15,9 +15,13 @@ class Cell:
         self._column = column
         self.open_walls = set()
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """Return a string representation of the cell."""
         return f'{self.__class__.__name__}{self.coordinates}'
+
+    def __str__(self) -> str:
+        """Return a string representation of the cell."""
+        return repr(self)
 
     @property
     def row(self) -> int:
@@ -58,11 +62,11 @@ class Direction(Enum):
         return next(d for d in self.__class__ if (d.dx, d.dy) == (-self.dx, -self.dy))
 
     @classmethod
-    def between(cls, start_cell: Cell, end_cell: Cell) -> 'Direction':
+    def between(cls, start_cell: Cell, end_cell: Cell) -> Optional['Direction']:
         """Return the direction between the given start and end cells, which are assumed to be adjacent."""
         dx = end_cell.column - start_cell.column
         dy = end_cell.row - start_cell.row
-        return next(d for d in cls if (d.dx, d.dy) == (dx, dy))
+        return next((d for d in cls if (d.dx, d.dy) == (dx, dy)), None)
 
 
 class Grid:
