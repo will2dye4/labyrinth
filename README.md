@@ -79,7 +79,7 @@ the program accepts.
 $ maze -h
 usage: maze [-h] [-a {dfs,kruskal,prim,wilson}] [-g] [dimensions]
 
-Generate mazes.
+Generate mazes using a variety of different algorithms.
 
 positional arguments:
   dimensions            Dimensions of the maze to generate (e.g., 10x10)
@@ -89,12 +89,13 @@ optional arguments:
   -a {dfs,kruskal,prim,wilson}, --algorithm {dfs,kruskal,prim,wilson}
                         The algorithm to use to generate the maze
   -g, --gui, --ui       Display a GUI showing the maze being generated
+  -s, --solve           Show the solution to the maze
 ```
 
 Typical usage is `maze <dimensions>`, where `<dimensions>` is a string like `10x10`
 describing the dimensions of the maze to generate (width x height). The program will
 generate a random maze of the given size and print an ASCII representation of the maze
-to the console.
+to the console. Add the `-s` (`--solve`) flag to display the solution to the maze as well.
 
 ### Algorithms
 
@@ -169,6 +170,34 @@ $ maze 20x10
 |   |   |           |   |   |               |       |           |       |   |   |
 +   +   +---+---+---+   +---+   +---+---+---+---+   +---+---+---+   +---+---+   +
 |                   |                               |                           |
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+```
+
+The following is an example of using the `-a` flag to specify a maze generation
+algorithm (see above) and the `-s` flag to show the solution to the maze.
+
+```
+$ maze 20x10 -a kruskal -s
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+| X   X   X |   |       |       |       |           |       |   |   |           |
++   +---+   +   +   +---+   +---+   +   +---+   +   +---+   +   +   +---+   +---+
+|   |     X   X   X |   |   |   |   |   |       |       |       |   |   |   |   |
++   +---+---+---+   +   +   +   +   +---+   +---+---+---+---+   +   +   +   +   +
+|   |   |   |   | X |                           |       |       |               |
++---+   +   +   +   +---+---+---+---+---+---+   +   +   +   +---+---+   +---+   +
+|   |   |   |   | X |   |   |       |               |       |   |   |   |       |
++   +   +   +   +   +   +   +   +---+---+---+---+---+---+   +   +   +   +   +---+
+|           |     X |       |                           |       |   |   |       |
++---+---+   +---+   +   +   +---+   +---+---+---+---+   +   +---+   +   +---+---+
+|   |             X |   |   |       |             X   X     |           |   |   |
++   +---+---+   +   +---+   +---+---+---+   +---+   +   +---+---+   +---+   +   +
+|               | X   X |   |   |   |   |   |   | X | X   X |               |   |
++   +---+---+   +   +   +   +   +   +   +---+   +   +---+   +---+---+---+   +   +
+|   |   |   |   |   | X   X   X   X   X |       | X |   | X |       |           |
++   +   +   +   +   +   +---+---+---+   +---+   +   +   +   +   +---+   +---+---+
+|           |   |   |   |       | X   X |         X     | X   X   X   X   X   X |
++   +   +   +   +   +   +   +---+   +---+---+---+   +   +   +---+---+---+---+   +
+|   |   |   |   |   |       |     X   X   X   X   X |   |       |             X |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ```
 

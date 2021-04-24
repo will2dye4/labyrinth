@@ -83,9 +83,11 @@ class MazeAppMenu(tk.Frame):
         self.graph_mode_var.set(1 if value == DisplayMode.GRAPH else 0)
 
     @property
-    def generator_type(self) -> Type[MazeGenerator]:
+    def generator_type(self) -> Optional[Type[MazeGenerator]]:
         """Return a MazeGenerator subclass indicating the current maze generator type."""
         class_name = self.algorithm_var.get()
+        if not class_name:
+            return None
         return next(
             (cls for cls in self.app.SUPPORTED_GENERATORS if cls.__name__ == class_name),
             self.app.DEFAULT_GENERATOR
@@ -251,7 +253,11 @@ class MazeApp(tk.Frame):
 
     @property
     def generator_type(self) -> Type[MazeGenerator]:
-        return self.DEFAULT_GENERATOR if self.menu is None else self.menu.generator_type
+        if self.menu is not None and self.menu.generator_type is not None:
+            return self.menu.generator_type
+        if self._generator is not None:
+            return self._generator.__class__
+        return self.DEFAULT_GENERATOR
 
     @property
     def generator(self) -> MazeGenerator:

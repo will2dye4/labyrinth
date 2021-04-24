@@ -12,6 +12,7 @@ from labyrinth.generate import (
     WilsonsGenerator,
 )
 from labyrinth.maze import Maze
+from labyrinth.solve import MazeSolver
 from labyrinth.ui import MazeApp
 
 
@@ -29,19 +30,26 @@ class LabyrinthMain:
         """Initialize a LabyrinthMain."""
         parsed_args = self.parse_args(sys.argv[1:])
         self.gui = gui or parsed_args.gui
+        self.solve = parsed_args.solve
         self.generator = self.ALGORITHM_CHOICES[parsed_args.algorithm]()
         self.width, self.height = parsed_args.dimensions
 
     @classmethod
     def parse_args(cls, args: List[str]) -> argparse.Namespace:
         """Return a Namespace containing the program's configuration as parsed from the given arguments."""
-        parser = argparse.ArgumentParser(description='Generate mazes.')
+        parser = argparse.ArgumentParser(description='Generate mazes using a variety of different algorithms.')
         parser.add_argument('dimensions', nargs='?', default='25x25', type=cls.parse_dimensions,
                             help='Dimensions of the maze to generate (e.g., 10x10)')
         parser.add_argument('-a', '--algorithm', choices=sorted(cls.ALGORITHM_CHOICES.keys()), default='dfs',
                             help='The algorithm to use to generate the maze')
-        parser.add_argument('-g', '--gui', '--ui', action='store_true',
-                            help='Display a GUI showing the maze being generated')
+
+        # use a group to prevent passing --gui and --solve at the same time
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('-g', '--gui', '--ui', action='store_true',
+                           help='Display a GUI showing the maze being generated')
+        group.add_argument('-s', '--solve', action='store_true',
+                           help='Show the solution to the maze')
+
         return parser.parse_args(args)
 
     @staticmethod
@@ -64,7 +72,11 @@ class LabyrinthMain:
         if self.gui:
             self.run_gui()
         else:
-            print(Maze(self.width, self.height, generator=self.generator))
+            maze = Maze(self.width, self.height, generator=self.generator)
+            if self.solve:
+                solver = MazeSolver()
+                maze.path = solver.solve(maze)
+            print(maze)
 
 
 def main(gui: bool = False) -> None:

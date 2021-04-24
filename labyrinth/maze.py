@@ -13,6 +13,7 @@ class Maze:
                  generator: Optional[MazeGenerator] = RandomDepthFirstSearchGenerator()) -> None:
         """Initialize a Maze."""
         self._grid = Grid(width, height)
+        self.path = []
         if generator:
             generator.generate(self)
 
@@ -28,7 +29,7 @@ class Maze:
             maze_str += '|'
             for column in range(self.width):
                 cell = self[row, column]
-                maze_str += ' ' * cell_width
+                maze_str += ' X ' if cell in self.path else ' ' * cell_width
                 maze_str += ' ' if Direction.E in cell.open_walls else '|'
             maze_str += '\n+'
             for column in range(self.width):
