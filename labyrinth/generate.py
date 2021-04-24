@@ -15,7 +15,8 @@ from labyrinth.utils.event import EventDispatcher
 class MazeUpdateType(Enum):
     """Enumeration of all maze update event types."""
     WALL_REMOVED = 1
-    CELL_MARKED = 2
+    EDGE_REMOVED = 2
+    CELL_MARKED = 3
 
 
 @dataclass
@@ -104,6 +105,7 @@ class PrimsGenerator(MazeGenerator):
         self.frontier = None
 
     def on_cell_marked(self, cell: Cell, new_frontier_cells: Set[Cell]):
+        """Notify any event listeners when a cell is marked as included in the maze."""
         state = MazeUpdate(type=MazeUpdateType.CELL_MARKED, start_cell=cell, new_frontier_cells=new_frontier_cells)
         self.on_state_changed(state)
 
@@ -183,6 +185,11 @@ class KruskalsGenerator(MazeGenerator):
         """Initialize a KruskalsGenerator with an optional event listener."""
         super().__init__(event_listener)
 
+    def on_edge_removed(self, start_cell: Cell, end_cell: Cell) -> None:
+        """Notify any event listeners when an edge is removed from the graph."""
+        state = MazeUpdate(type=MazeUpdateType.EDGE_REMOVED, start_cell=start_cell, end_cell=end_cell)
+        self.on_state_changed(state)
+
     def generate_maze(self) -> None:
         """Generate paths through a maze using a modified version of Kruskal's algorithm."""
         walls = self.maze.walls
@@ -190,6 +197,8 @@ class KruskalsGenerator(MazeGenerator):
         while walls:
             start_cell, end_cell = walls.pop()
             start_set, end_set = sets[start_cell], sets[end_cell]
-            if not start_set.is_connected(end_set):
+            if start_set.is_connected(end_set):
+                self.on_edge_removed(start_cell, end_cell)
+            else:
                 start_set.merge(end_set)
                 self.open_wall(start_cell, end_cell)

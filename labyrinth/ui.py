@@ -380,6 +380,12 @@ class MazeApp(tk.Frame):
             self.clear_cell(state.start_cell)
             for cell in state.new_frontier_cells:
                 self.fill_cell(cell, FRONTIER_COLOR, tag=self.get_cell_tag(*cell.coordinates))
+        elif state.type == MazeUpdateType.EDGE_REMOVED and self.display_mode == DisplayMode.GRAPH:
+            direction = Direction.between(state.start_cell, state.end_cell)
+            tag = self.get_wall_tag(state.start_cell.row, state.start_cell.column, direction)
+            self.canvas.delete(tag)
+            opposite_tag = self.get_wall_tag(state.end_cell.row, state.end_cell.column, direction.opposite)
+            self.canvas.delete(opposite_tag)
 
         self.canvas.update()
 
