@@ -401,6 +401,7 @@ class MazeApp(tk.Frame):
         tag = self.get_cell_tag(*cell.coordinates)
         if self.display_mode == DisplayMode.GRID:
             self.canvas.delete(tag)
+            self.fill_cell(cell, 'white')
         else:
             self.canvas.itemconfigure(tag, fill=VERTEX_COLOR)
 
