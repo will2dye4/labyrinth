@@ -1,5 +1,6 @@
 """Graphical user interface for the labyrinth program."""
 
+from enum import Enum
 from typing import Any, Optional, Tuple, Type
 import time
 import tkinter as tk
@@ -28,6 +29,12 @@ GENERATE_PATH_COLOR = '#F5A676'
 INITIAL_CELL_COLOR = '#AAAAAA'
 PATH_COLOR = '#C3E3F7'
 TEXT_COLOR = 'white'
+VERTEX_COLOR = '#2C1CD9'
+
+
+class DisplayMode(Enum):
+    GRID = 'grid'
+    GRAPH = 'graph'
 
 
 class LabelButton(tk.Label):
@@ -46,6 +53,7 @@ class MazeAppMenu(tk.Frame):
 
         self.algorithm_var = tk.StringVar()
         self.animate_var = tk.IntVar()
+        self.graph_mode_var = tk.IntVar()
         self.delay_millis = DEFAULT_STEP_DELAY_MILLIS
         self.speed_scale = None
 
@@ -63,6 +71,16 @@ class MazeAppMenu(tk.Frame):
     def animate(self, value: bool) -> None:
         """Setter for the animate property."""
         self.animate_var.set(1 if value else 0)
+
+    @property
+    def display_mode(self) -> DisplayMode:
+        """Return the current display mode (grid or graph)."""
+        return DisplayMode.GRAPH if self.graph_mode_var.get() == 1 else DisplayMode.GRID
+
+    @display_mode.setter
+    def display_mode(self, value: DisplayMode) -> None:
+        """Setter for the display mode property."""
+        self.graph_mode_var.set(1 if value == DisplayMode.GRAPH else 0)
 
     @property
     def generator_type(self) -> Type[MazeGenerator]:
@@ -98,6 +116,13 @@ class MazeAppMenu(tk.Frame):
 
         self.create_spacer(height=3)
 
+        graph_mode_button = tk.Checkbutton(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, padx=10,
+                                           text='Graph Mode', variable=self.graph_mode_var,
+                                           command=self.app.display_maze)
+        graph_mode_button.pack(side='top')
+
+        self.create_spacer()
+
         animate_button = tk.Checkbutton(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, padx=10, text='Animate',
                                         variable=self.animate_var, command=self.toggle_animate)
         animate_button.pack(side='top')
@@ -129,7 +154,7 @@ class MazeAppMenu(tk.Frame):
 
     def choose_algorithm(self, event: tk.Event) -> None:
         """Open a dialog box allowing the user to change the maze generation algorithm."""
-        if self.app.choosing_algorithm or self.app.generating_maze:
+        if self.app.choosing_algorithm or self.app.generating_maze or self.app.solving_maze:
             return
 
         self.app.choosing_algorithm = True
@@ -168,8 +193,12 @@ class MazeApp(tk.Frame):
     CELL_WIDTH = 35
     CELL_HEIGHT = CELL_WIDTH
 
+    VERTEX_RADIUS = 10
+    VERTEX_DIAMETER = VERTEX_RADIUS * 2
+
     TICK_DELAY_MILLIS = 500
 
+    DEFAULT_DISPLAY_MODE = DisplayMode.GRID
     DEFAULT_GENERATOR = RandomDepthFirstSearchGenerator
 
     SUPPORTED_GENERATORS = {
@@ -196,6 +225,7 @@ class MazeApp(tk.Frame):
         self.drawing_path = False
         self.choosing_algorithm = False
         self.solving_maze = False
+        self.maze_generated = False
         self._generator = generator
         self.solver = MazeSolver()
         self.maze = None
@@ -229,6 +259,10 @@ class MazeApp(tk.Frame):
         if self._generator is None or self._generator.__class__ != self.generator_type:
             self._generator = self.generator_type()
         return self._generator
+
+    @property
+    def display_mode(self) -> DisplayMode:
+        return self.DEFAULT_DISPLAY_MODE if self.menu is None else self.menu.display_mode
 
     @property
     def is_solved(self) -> bool:
@@ -299,8 +333,9 @@ class MazeApp(tk.Frame):
 
         self.clear_path()
         self.maze = Maze(self.width, self.height, generator=None)
+        self.maze_generated = False
         self.start_time = None
-        self.create_maze_grid()
+        self.display_maze()
 
         if generate:
             self.generate_current_maze()
@@ -317,9 +352,10 @@ class MazeApp(tk.Frame):
         self.generator.generate(self.maze)
         self.clear_path()
         self.generating_maze = False
+        self.maze_generated = True
 
-        if not self.menu.animate:
-            self.create_maze_grid()
+        if not self.menu.animate or self.display_mode == DisplayMode.GRAPH:
+            self.display_maze()
 
         self.start_time = time.time()
         self.end_time = None
@@ -335,7 +371,7 @@ class MazeApp(tk.Frame):
             self.path.append(state.end_cell)
             self.fill_cell(state.end_cell, GENERATE_PATH_COLOR)
         elif state.type == MazeUpdateType.CELL_MARKED:
-            self.canvas.delete(self.get_cell_tag(*state.start_cell.coordinates))
+            self.clear_cell(state.start_cell)
             for cell in state.new_frontier_cells:
                 self.fill_cell(cell, FRONTIER_COLOR, tag=self.get_cell_tag(*cell.coordinates))
 
@@ -348,13 +384,25 @@ class MazeApp(tk.Frame):
         """Remove the wall between the given start cell and end cell, also clearing any color from the cells."""
         direction = Direction.between(start_cell, end_cell)
         wall_tag = self.get_wall_tag(start_cell.row, start_cell.column, direction)
-        self.canvas.delete(wall_tag)
         opposite_wall_tag = self.get_wall_tag(end_cell.row, end_cell.column, direction.opposite)
-        self.canvas.delete(opposite_wall_tag)
-        start_cell_tag = self.get_cell_tag(start_cell.row, start_cell.column)
-        self.canvas.delete(start_cell_tag)
-        end_cell_tag = self.get_cell_tag(end_cell.row, end_cell.column)
-        self.canvas.delete(end_cell_tag)
+        if self.display_mode == DisplayMode.GRID:
+            self.canvas.delete(wall_tag)
+            self.canvas.delete(opposite_wall_tag)
+            start_cell_tag = self.get_cell_tag(start_cell.row, start_cell.column)
+            self.canvas.delete(start_cell_tag)
+            end_cell_tag = self.get_cell_tag(end_cell.row, end_cell.column)
+            self.canvas.delete(end_cell_tag)
+        else:
+            for tag in {wall_tag, opposite_wall_tag}:
+                self.canvas.itemconfigure(tag, dash=())
+
+    def clear_cell(self, cell: Cell) -> None:
+        """Reset the given cell back to its default state on the canvas."""
+        tag = self.get_cell_tag(*cell.coordinates)
+        if self.display_mode == DisplayMode.GRID:
+            self.canvas.delete(tag)
+        else:
+            self.canvas.itemconfigure(tag, fill=VERTEX_COLOR)
 
     def create_maze_grid(self) -> None:
         """Populate the canvas with all of the walls in the current maze."""
@@ -385,11 +433,65 @@ class MazeApp(tk.Frame):
                     if not cell.open_walls:
                         cell_tag = self.get_cell_tag(row, column)
                         self.fill_cell(cell, INITIAL_CELL_COLOR, cell_tag)
+                    elif cell in self.path:
+                        color = GENERATE_PATH_COLOR if self.generating_maze else PATH_COLOR
+                        self.fill_cell(cell, color)
+
+    def create_maze_graph(self) -> None:
+        """Populate the canvas with a visual representation of the graph underlying the current maze."""
+        for obj in self.canvas.find_all():
+            self.canvas.delete(obj)
+
+        for row in range(self.height):
+            for column in range(self.width):
+                cell = self.maze[row, column]
+                cell_x0 = self.CELL_WIDTH * column + self.BORDER_OFFSET
+                cell_y0 = self.CELL_HEIGHT * row + self.BORDER_OFFSET
+                pad_x = (self.CELL_WIDTH - self.VERTEX_DIAMETER) // 2
+                pad_y = (self.CELL_HEIGHT - self.VERTEX_DIAMETER) // 2
+                vertex_x0 = cell_x0 + pad_x
+                vertex_y0 = cell_y0 + pad_y
+                vertex_x1 = vertex_x0 + self.VERTEX_DIAMETER
+                vertex_y1 = vertex_y0 + self.VERTEX_DIAMETER
+                tag = self.get_cell_tag(*cell.coordinates)
+                if cell.open_walls:
+                    if cell in self.path:
+                        color = GENERATE_PATH_COLOR if self.generating_maze else PATH_COLOR
+                    else:
+                        color = VERTEX_COLOR
+                else:
+                    color = INITIAL_CELL_COLOR
+                self.canvas.create_oval(vertex_x0, vertex_y0, vertex_x1, vertex_y1, fill=color, tags=tag)
+                for direction in {Direction.E, Direction.S}:
+                    neighbor = self.maze.neighbor(cell, direction)
+                    if (self.maze_generated and direction in cell.open_walls) or (not self.maze_generated and neighbor):
+                        dash = () if self.maze_generated or direction in cell.open_walls else (2,)
+                        if direction == Direction.E:
+                            edge_x0 = vertex_x1
+                            edge_y0 = vertex_y0 + self.VERTEX_RADIUS
+                            edge_x1 = 1 + edge_x0 + pad_x * 2
+                            edge_y1 = edge_y0
+                        elif direction == Direction.S:
+                            edge_x0 = vertex_x0 + self.VERTEX_RADIUS
+                            edge_y0 = vertex_y1
+                            edge_x1 = edge_x0
+                            edge_y1 = 1 + edge_y0 + pad_y * 2
+                        else:
+                            raise ValueError(f'Unexpected direction {direction.name}!')
+                        tag = self.get_wall_tag(cell.row, cell.column, direction)
+                        opposite_tag = self.get_wall_tag(neighbor.row, neighbor.column, direction.opposite)
+                        self.canvas.create_line(edge_x0, edge_y0, edge_x1, edge_y1, width=2, dash=dash, tags=(tag, opposite_tag))
+
+    def display_maze(self) -> None:
+        """Display the current maze on the canvas."""
+        if self.display_mode == DisplayMode.GRID:
+            self.create_maze_grid()
+        else:
+            self.create_maze_graph()
 
     def solve_maze(self, event: Optional[tk.Event] = None) -> None:
         """Solve the current maze."""
-        if (self.solving_maze or self.generating_maze or self.choosing_algorithm
-                or self.is_solved or not self.maze[0, 0].open_walls):
+        if self.solving_maze or self.generating_maze or self.choosing_algorithm or not self.maze[0, 0].open_walls:
             return
 
         self.solving_maze = True
@@ -435,28 +537,34 @@ class MazeApp(tk.Frame):
                     # print(f'Invalid move (through {direction.name} wall)')
                     return
 
-        color = PATH_COLOR if add else 'white'
-        self.fill_cell(clicked_cell, color)
-
         if add:
+            self.fill_cell(clicked_cell, PATH_COLOR)
             self.path.append(clicked_cell)
         else:
+            self.clear_cell(clicked_cell)
             self.path = self.path[:-1]
 
     def fill_cell(self, cell: Cell, color: str, tag: str = 'path'):
         """Fill the given cell in the maze with the given color."""
-        row_offset = 2 if cell.row in {0, self.height - 1} else 1
-        column_offset = 2 if cell.column in {0, self.width - 1} else 1
-        x0 = self.CELL_WIDTH * cell.column + self.BORDER_OFFSET + column_offset
-        y0 = self.CELL_HEIGHT * cell.row + self.BORDER_OFFSET + row_offset
-        x1 = x0 + self.CELL_WIDTH - (2 if cell.column == self.width - 1 else 1) * column_offset
-        y1 = y0 + self.CELL_HEIGHT - (2 if cell.row == self.height - 1 else 1) * row_offset
-        self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, width=0, tags=tag)
+        if self.display_mode == DisplayMode.GRID:
+            row_offset = 2 if cell.row in {0, self.height - 1} else 1
+            column_offset = 2 if cell.column in {0, self.width - 1} else 1
+            x0 = self.CELL_WIDTH * cell.column + self.BORDER_OFFSET + column_offset
+            y0 = self.CELL_HEIGHT * cell.row + self.BORDER_OFFSET + row_offset
+            x1 = x0 + self.CELL_WIDTH - (2 if cell.column == self.width - 1 else 1) * column_offset
+            y1 = y0 + self.CELL_HEIGHT - (2 if cell.row == self.height - 1 else 1) * row_offset
+            self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, width=0, tags=tag)
+        else:
+            self.canvas.itemconfigure(self.get_cell_tag(*cell.coordinates), fill=color)
 
     def clear_path(self) -> None:
         """Clear the current path of highlighted cells in the maze."""
+        if self.display_mode == DisplayMode.GRID:
+            self.canvas.delete('path')
+        else:
+            for cell in self.path:
+                self.canvas.itemconfigure(self.get_cell_tag(*cell.coordinates), fill=VERTEX_COLOR)
         self.path.clear()
-        self.canvas.delete('path')
 
     @property
     def elapsed_time(self) -> float:
