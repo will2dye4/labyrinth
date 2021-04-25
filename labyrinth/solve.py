@@ -14,7 +14,6 @@ class MazeSolver:
     def __init__(self) -> None:
         """Initialize a MazeSolver."""
         self.maze = None
-        self.root = None
         self.junction_graph = None
         self.prev_cells = None
 
@@ -26,7 +25,7 @@ class MazeSolver:
         junction_graph = Graph()
         visited = defaultdict(bool)
 
-        def junction_visitor(cell: Cell) -> None:
+        def cell_visitor(cell: Cell) -> None:
             visited[cell] = True
             for neighbor in self.maze.neighbors(cell):
                 direction = Direction.between(cell, neighbor)
@@ -37,7 +36,7 @@ class MazeSolver:
                     junction_graph.add_vertex(neighbor)
                     junction_graph.add_edge(cell, neighbor)
 
-        self.maze.depth_first_search(self.root, junction_visitor)
+        self.maze.depth_first_search(self.maze.start_cell, cell_visitor)
         return junction_graph
 
     @staticmethod
@@ -50,7 +49,7 @@ class MazeSolver:
         """Return True if the given cell is part of the solution to the maze, False otherwise."""
         while cell in self.prev_cells:
             cell = self.prev_cells[cell]
-        return cell == self.root
+        return cell == self.maze.start_cell
 
     @staticmethod
     def junction_direction(start_junction: Cell, end_junction: Cell) -> Direction:
@@ -61,7 +60,8 @@ class MazeSolver:
             return Direction.E if dx > 0 else Direction.W
         return Direction.S if dy > 0 else Direction.N
 
-    def cell_visitor(self, cell: Cell) -> None:
+    def junction_visitor(self, cell: Cell) -> None:
+        """Visitor function for the depth-first search algorithm."""
         for neighbor in self.junction_graph.neighbors(cell):
             direction = self.junction_direction(cell, neighbor)
             if direction in cell.open_walls and self.is_in_solution(neighbor):
@@ -69,23 +69,24 @@ class MazeSolver:
                 break
 
     def solve(self, maze: Maze) -> List[Cell]:
+        """Find and return a path through the given maze."""
         self.maze = maze
         path = self.solve_maze()
         self.maze = None
         return path
 
     def solve_maze(self) -> List[Cell]:
+        """Find and return a path through the current maze."""
         self.prev_cells = {}
-        self.root = self.maze[0, 0]
         self.junction_graph = self.construct_junction_graph()
-        self.junction_graph.depth_first_search(self.root, self.cell_visitor)
+        self.junction_graph.depth_first_search(self.maze.start_cell, self.junction_visitor)
 
-        end_cell = self.maze[self.maze.height - 1, self.maze.width - 1]
+        end_cell = self.maze.end_cell
         path = [end_cell]
         prev_cell = end_cell
         cell = self.prev_cells.get(end_cell)
 
-        while path[-1] != self.root:
+        while path[-1] != self.maze.start_cell:
             if Direction.between(prev_cell, cell) is None:
                 # fill in corridors
                 direction = self.junction_direction(prev_cell, cell)

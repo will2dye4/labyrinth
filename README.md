@@ -99,12 +99,12 @@ to the console. Add the `-s` (`--solve`) flag to display the solution to the maz
 
 ### Algorithms
 
-By default, `maze` will use a random depth-first search algorithm to generate the maze.
+By default, `maze` will use a depth-first search algorithm to generate the maze.
 To specify a different algorithm, use the `-a` or `--algorithm` flags to `maze`. The
 available algorithms are `dfs`, `kruskal`, `prim`, and `wilson`. A description of each
 of these algorithms follows.
 
-The **DFS** (depth-first search) algorithm generates paths through the maze using a
+The **DFS (depth-first search) algorithm** generates paths through the maze using a
 conventional [depth-first search](https://en.wikipedia.org/wiki/Depth-first_search)
 through the maze's underlying graph. The search starts in the top left corner and 
 repeatedly moves to a neighboring cell, creating a path as it goes. When the path reaches 
@@ -114,7 +114,7 @@ behavior, this algorithm is also sometimes referred to as the **recursive backtr
 The DFS algorithm tends to produce mazes with long, winding corridors but which are not 
 particularly difficult to solve.
 
-The version of **Kruskal's** algorithm implemented here is a modified version of
+The version of **Kruskal's algorithm** implemented here is a modified version of
 [Kruskal's algorithm](https://en.wikipedia.org/wiki/Kruskal%27s_algorithm) for finding
 minimum spanning trees of connected graphs. Because the maze graph is unweighted,
 the algorithm is modified to select edges at random rather than based on lowest weight,
@@ -123,7 +123,7 @@ cells is selected, and the walls between the cells are removed if the two cells 
 disjoint paths through the maze. Kruskal's algorithm tends to produce mazes with many
 short cul-de-sacs and dead ends which are moderately difficult to solve.
 
-The version of **Prim's** algorithm implemented here is a modified version of
+The version of **Prim's algorithm** implemented here is a modified version of
 [Prim's algorithm](https://en.wikipedia.org/wiki/Prim%27s_algorithm), which, like
 Kruskal's algorithm, finds minimum spanning trees of connected graphs. As with Kruskal's
 algorithm, Prim's algorithm has been modified to select edges at random rather than by
@@ -135,7 +135,7 @@ continues until there are no frontier cells left, meaning that all cells are par
 Prim's algorithm, like Kruskal's algorithm, tends to produce mazes with many cul-de-sacs and
 dead ends.
 
-**Wilson's** algorithm is somewhat similar to Kruskal's and Prim's algorithms, but unlike those
+**Wilson's algorithm** is somewhat similar to Kruskal's and Prim's algorithms, but unlike those
 algorithms, Wilson's algorithm generates [uniform spanning trees](https://en.wikipedia.org/wiki/Loop-erased_random_walk#Uniform_spanning_tree)
 and therefore tends to produce mazes which are a bit more visually pleasing than those generated
 by the previous two algorithms. Wilson's algorithm works by performing repeated loop-erased random

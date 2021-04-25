@@ -2,7 +2,7 @@
 
 from typing import Callable, Optional, Set, Tuple
 
-from labyrinth.generate import MazeGenerator, RandomDepthFirstSearchGenerator
+from labyrinth.generate import DepthFirstSearchGenerator, MazeGenerator
 from labyrinth.grid import Cell, Direction, Grid
 
 
@@ -10,7 +10,7 @@ class Maze:
     """Representation of a maze as a graph with a grid structure."""
 
     def __init__(self, width: int = 10, height: int = 10,
-                 generator: Optional[MazeGenerator] = RandomDepthFirstSearchGenerator()) -> None:
+                 generator: Optional[MazeGenerator] = DepthFirstSearchGenerator()) -> None:
         """Initialize a Maze."""
         self._grid = Grid(width, height)
         self.path = []
@@ -52,6 +52,16 @@ class Maze:
     def walls(self) -> Set[Tuple[Cell, Cell]]:
         """Return a set of all walls in this maze."""
         return self._grid.graph.edges
+
+    @property
+    def start_cell(self) -> Cell:
+        """Return the starting cell of this maze."""
+        return self[0, 0]
+
+    @property
+    def end_cell(self) -> Cell:
+        """Return the ending cell of this maze."""
+        return self[self.height - 1, self.width - 1]
 
     def get_cell(self, row: int, column: int) -> Cell:
         """Return the cell in the maze at the given row and column."""

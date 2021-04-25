@@ -6,12 +6,12 @@ import time
 import tkinter as tk
 
 from labyrinth.generate import (
+    DepthFirstSearchGenerator,
     KruskalsGenerator,
     MazeGenerator,
     MazeUpdate,
     MazeUpdateType,
     PrimsGenerator,
-    RandomDepthFirstSearchGenerator,
     WilsonsGenerator,
 )
 from labyrinth.grid import Cell, Direction
@@ -201,12 +201,12 @@ class MazeApp(tk.Frame):
     TICK_DELAY_MILLIS = 500
 
     DEFAULT_DISPLAY_MODE = DisplayMode.GRID
-    DEFAULT_GENERATOR = RandomDepthFirstSearchGenerator
+    DEFAULT_GENERATOR = DepthFirstSearchGenerator
 
     SUPPORTED_GENERATORS = {
+        DepthFirstSearchGenerator: "Depth First Search",
         KruskalsGenerator: "Kruskal's Algorithm",
         PrimsGenerator: "Prim's Algorithm",
-        RandomDepthFirstSearchGenerator: "Random Depth First Search",
         WilsonsGenerator: "Wilson's Algorithm",
     }
 
@@ -504,7 +504,7 @@ class MazeApp(tk.Frame):
 
     def solve_maze(self, event: Optional[tk.Event] = None) -> None:
         """Solve the current maze."""
-        if self.solving_maze or self.generating_maze or self.choosing_algorithm or not self.maze[0, 0].open_walls:
+        if self.solving_maze or self.generating_maze or self.choosing_algorithm or not self.maze.start_cell.open_walls:
             return
 
         self.solving_maze = True
@@ -531,7 +531,7 @@ class MazeApp(tk.Frame):
         add = True
 
         if not self.path:
-            if self.validate_moves and (row, column) != (0, 0):
+            if self.validate_moves and clicked_cell != self.maze.start_cell:
                 # print('Path must start at (0, 0)')
                 return
         else:

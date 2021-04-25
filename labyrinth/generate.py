@@ -8,7 +8,7 @@ import abc
 import random
 
 from labyrinth.grid import Cell, Direction
-from labyrinth.utils.collections import TreeSet
+from labyrinth.utils.collections import DisjointSet
 from labyrinth.utils.event import EventDispatcher
 
 
@@ -62,9 +62,9 @@ class MazeGenerator(abc.ABC, EventDispatcher[MazeUpdate]):
         raise NotImplemented
 
 
-class RandomDepthFirstSearchGenerator(MazeGenerator):
+class DepthFirstSearchGenerator(MazeGenerator):
     """
-    MazeGenerator subclass that generates mazes using the random depth-first search (DFS) algorithm.
+    MazeGenerator subclass that generates mazes using the depth-first search (DFS) algorithm.
 
     This algorithm is also known as the 'recursive backtrack' algorithm. The algorithm is equivalent to the following:
 
@@ -77,7 +77,7 @@ class RandomDepthFirstSearchGenerator(MazeGenerator):
     """
 
     def __init__(self, event_listener: Optional[Callable[[MazeUpdate], None]] = None) -> None:
-        """Initialize a RandomDepthFirstSearchGenerator with an optional event listener."""
+        """Initialize a DepthFirstSearchGenerator with an optional event listener."""
         super().__init__(event_listener)
         self.prev_cells = None
 
@@ -92,7 +92,33 @@ class RandomDepthFirstSearchGenerator(MazeGenerator):
     def generate_maze(self) -> None:
         """Generate paths through a maze using random depth-first search."""
         self.prev_cells = {}
-        self.maze.depth_first_search(self.maze[0, 0], self.cell_visitor)
+        self.maze.depth_first_search(self.maze.start_cell, self.cell_visitor)
+
+
+class KruskalsGenerator(MazeGenerator):
+    """MazeGenerator subclass that generates mazes using a modified version of Kruskal's algorithm."""
+
+    def __init__(self, event_listener: Optional[Callable[[MazeUpdate], None]] = None) -> None:
+        """Initialize a KruskalsGenerator with an optional event listener."""
+        super().__init__(event_listener)
+
+    def on_edge_removed(self, start_cell: Cell, end_cell: Cell) -> None:
+        """Notify any event listeners when an edge is removed from the graph."""
+        state = MazeUpdate(type=MazeUpdateType.EDGE_REMOVED, start_cell=start_cell, end_cell=end_cell)
+        self.on_state_changed(state)
+
+    def generate_maze(self) -> None:
+        """Generate paths through a maze using a modified version of Kruskal's algorithm."""
+        walls = self.maze.walls
+        sets = defaultdict(DisjointSet)
+        while walls:
+            start_cell, end_cell = walls.pop()
+            start_set, end_set = sets[start_cell], sets[end_cell]
+            if start_set.is_connected(end_set):
+                self.on_edge_removed(start_cell, end_cell)
+            else:
+                start_set.merge(end_set)
+                self.open_wall(start_cell, end_cell)
 
 
 class PrimsGenerator(MazeGenerator):
@@ -176,29 +202,3 @@ class WilsonsGenerator(MazeGenerator):
                 neighbor = self.maze.neighbor(cell, direction)
                 self.open_wall(cell, neighbor)
                 self.included_cells.add(cell)
-
-
-class KruskalsGenerator(MazeGenerator):
-    """MazeGenerator subclass that generates mazes using a modified version of Kruskal's algorithm."""
-
-    def __init__(self, event_listener: Optional[Callable[[MazeUpdate], None]] = None) -> None:
-        """Initialize a KruskalsGenerator with an optional event listener."""
-        super().__init__(event_listener)
-
-    def on_edge_removed(self, start_cell: Cell, end_cell: Cell) -> None:
-        """Notify any event listeners when an edge is removed from the graph."""
-        state = MazeUpdate(type=MazeUpdateType.EDGE_REMOVED, start_cell=start_cell, end_cell=end_cell)
-        self.on_state_changed(state)
-
-    def generate_maze(self) -> None:
-        """Generate paths through a maze using a modified version of Kruskal's algorithm."""
-        walls = self.maze.walls
-        sets = defaultdict(TreeSet)
-        while walls:
-            start_cell, end_cell = walls.pop()
-            start_set, end_set = sets[start_cell], sets[end_cell]
-            if start_set.is_connected(end_set):
-                self.on_edge_removed(start_cell, end_cell)
-            else:
-                start_set.merge(end_set)
-                self.open_wall(start_cell, end_cell)

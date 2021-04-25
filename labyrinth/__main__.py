@@ -6,9 +6,9 @@ import os
 import sys
 
 from labyrinth.generate import (
+    DepthFirstSearchGenerator,
     KruskalsGenerator,
     PrimsGenerator,
-    RandomDepthFirstSearchGenerator,
     WilsonsGenerator,
 )
 from labyrinth.maze import Maze
@@ -20,9 +20,9 @@ class LabyrinthMain:
     """Main class for the labyrinth program."""
 
     ALGORITHM_CHOICES = {
+        'dfs': DepthFirstSearchGenerator,
         'kruskal': KruskalsGenerator,
         'prim': PrimsGenerator,
-        'dfs': RandomDepthFirstSearchGenerator,
         'wilson': WilsonsGenerator,
     }
 

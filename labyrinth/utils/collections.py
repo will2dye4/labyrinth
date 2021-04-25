@@ -1,9 +1,9 @@
 """Utility collection classes."""
 
 
-class TreeSet:
+class DisjointSet:
     """
-    A tree set is an implementation of a disjoint-set data structure.
+    DisjointSet is an implementation of a disjoint-set data structure.
 
     References:
         https://en.wikipedia.org/wiki/Disjoint-set_data_structure
@@ -11,20 +11,20 @@ class TreeSet:
     """
 
     def __init__(self) -> None:
-        """Initialize a TreeSet."""
+        """Initialize a DisjointSet."""
         self.parent = None
 
     @property
-    def root(self) -> 'TreeSet':
-        """Return the root of this tree set."""
+    def root(self) -> 'DisjointSet':
+        """Return the root of this set."""
         if self.parent is None:
             return self
         return self.parent.root
 
-    def is_connected(self, tree: 'TreeSet') -> bool:
-        """Return True if this tree set is connected to the given tree set, False otherwise."""
+    def is_connected(self, tree: 'DisjointSet') -> bool:
+        """Return True if this set is connected to the given set, False otherwise."""
         return self.root == tree.root
 
-    def merge(self, tree: 'TreeSet') -> None:
-        """Merge the given tree set into this tree set."""
+    def merge(self, tree: 'DisjointSet') -> None:
+        """Merge the given set into this set."""
         tree.root.parent = self
