@@ -5,7 +5,7 @@ using a variety of different algorithms.
 
 ## About
 
-![Animation - Graph to Grid](images/graph_to_grid.mp4)
+![Animation - Graph to Grid](images/graph_to_grid.gif)
 
 Creating mazes by hand has long been a hobby of mine, since I was in elementary school. I always liked
 solving mazes ever since I learned what they were, and I eventually realized that they were just as much
