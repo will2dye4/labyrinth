@@ -221,11 +221,16 @@ and how much time has elapsed since the maze was generated (i.e., how long it ha
 
 By default, the generation of new mazes will be animated, showing the current path being added to the maze
 at each step of the process, but this behavior can be disabled by unchecking the `Animate` box on
-the right side of the GUI. When animation is enabled, the `Delay (ms)` slider can also be adjusted
-to increase or decrease the delay between steps in the animation. When the `Graph Mode` box is checked,
-the conventional grid view of the maze will be replaced by a representation of the graph structure
-underlying the maze. This mode can be toggled on and off as desired to compare the traditional visual
-representation of the maze to the vertices and edges that the program is actually using to model the maze.
+the right side of the GUI. When animation is enabled, the `Speed` slider can also be adjusted
+to increase or decrease the delay between steps in the animation. Clicking the `Algorithm...` button
+will open a dialog box for selecting which algorithm should be used to generate mazes (see above).
+Clicking the `Maze Size...` button will open a dialog box for adjusting the size of the maze. Both the
+dimensions of the maze and the size of the cells can be customized. The maximum allowed maze size is 100 x 100.
+
+When the `Graph Mode` box is checked, the conventional grid view of the maze will be replaced by a
+representation of the graph structure underlying the maze. This mode can be toggled on and off as desired
+to compare the traditional visual representation of the maze to the vertices and edges that the program
+is actually using to model the maze.
 
 In addition to generating mazes, `maze-ui` is also capable of solving mazes. Once a maze has been
 generated, clicking the `Solve` button will show the path through the maze (from the top left corner
@@ -233,9 +238,19 @@ to the bottom right corner). If animation is enabled (see above), the drawing of
 be animated, although the actual process of finding the solution&mdash;which is based on a depth-first
 search of a "junction graph" of the maze&mdash;is not animated.
 
-A sample of the program running in GUI mode is shown below.
+A few screenshots of the program running in GUI mode are shown below.
 
-![GUI Mode](./images/gui_mode.png)
+![Maze UI - Grid Mode (solved)](./images/grid_mode_solved.png)
+
+![Maze UI - Graph Mode (solved)](./images/graph_mode_solved.png)
+
+![Maze UI - Grid Mode (Prim's generator)](./images/grid_mode_prims_generator.png)
+
+![Maze UI - Graph Mode (Kruskal's generator)](./images/graph_mode_kruskals_generator.png)
+
+![Maze UI - Grid Mode (large cells)](./images/grid_mode_large_cells.png)
+
+![Maze UI - Graph Mode (large cells)](./images/graph_mode_large_cells.png)
 
 ## References
 
