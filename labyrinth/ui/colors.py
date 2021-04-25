@@ -1,0 +1,13 @@
+"""Constants defining the color scheme of the UI."""
+
+BACKGROUND_COLOR = '#444444'
+TEXT_COLOR = 'white'
+
+FRONTIER_COLOR = '#97F593'
+GENERATE_PATH_COLOR = '#F5A676'
+INITIAL_CELL_COLOR = '#AAAAAA'
+PATH_COLOR = '#C3E3F7'
+
+VERTEX_COLOR = '#2C1CD9'
+
+FONT = ('Arial', 20)

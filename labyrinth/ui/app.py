@@ -1,7 +1,6 @@
 """Graphical user interface for the labyrinth program."""
 
-from enum import Enum
-from typing import Any, Optional, Tuple, Type
+from typing import Optional, Tuple, Type
 import time
 import tkinter as tk
 
@@ -17,328 +16,25 @@ from labyrinth.generate import (
 from labyrinth.grid import Cell, Direction
 from labyrinth.maze import Maze
 from labyrinth.solve import MazeSolver
-
-
-MIN_SPEED = 1
-MAX_SPEED = 6
-DEFAULT_SPEED = MAX_SPEED
-
-MAX_MAZE_SIZE = 100
-
-DEFAULT_STEP_DELAY_MILLIS = 50
-
-FONT = ('Arial', 20)
-
-BACKGROUND_COLOR = '#444444'
-FRONTIER_COLOR = '#97F593'
-GENERATE_PATH_COLOR = '#F5A676'
-INITIAL_CELL_COLOR = '#AAAAAA'
-PATH_COLOR = '#C3E3F7'
-TEXT_COLOR = 'white'
-VERTEX_COLOR = '#2C1CD9'
-
-
-class DisplayMode(Enum):
-    GRID = 'grid'
-    GRAPH = 'graph'
-
-
-class SizeCategory(Enum):
-    # values are (cell_width, vertex_radius)
-    SMALL = (35, 10)
-    MEDIUM = (50, 15)
-    LARGE = (75, 20)
-
-
-class LabelButton(tk.Label):
-
-    def __init__(self, parent: Any, text: str, **kwargs):
-        super().__init__(parent, text=text, bg=BACKGROUND_COLOR, fg=PATH_COLOR, font=FONT, padx=10, pady=10, bd=3,
-                         relief=tk.GROOVE, cursor='hand2', **kwargs)
-
-
-class MazeAppMenu(tk.Frame):
-    """Class containing state and graphics for rendering the menu portion of the UI."""
-
-    def __init__(self, app: 'MazeApp', **kwargs) -> None:
-        super().__init__(bg=BACKGROUND_COLOR, padx=10, pady=10, **kwargs)
-        self.app = app
-
-        self.algorithm_var = tk.StringVar()
-        self.maze_size_var = tk.StringVar()
-        self.maze_width_var = tk.StringVar()
-        self.maze_height_var = tk.StringVar()
-        self.animate_var = tk.IntVar()
-        self.graph_mode_var = tk.IntVar()
-        self.delay_millis = DEFAULT_STEP_DELAY_MILLIS
-        self.speed_scale = None
-
-        self.pack()
-        self.create_menu()
-
-        self.generator_type = self.app.generator.__class__
-        self.maze_width = self.app.width
-        self.maze_height = self.app.height
-
-    @property
-    def animate(self) -> bool:
-        """Return a boolean indicating whether animation of maze generation is currently enabled."""
-        return self.animate_var.get() == 1
-
-    @animate.setter
-    def animate(self, value: bool) -> None:
-        """Setter for the animate property."""
-        self.animate_var.set(1 if value else 0)
-
-    @property
-    def display_mode(self) -> DisplayMode:
-        """Return the current display mode (grid or graph)."""
-        return DisplayMode.GRAPH if self.graph_mode_var.get() == 1 else DisplayMode.GRID
-
-    @display_mode.setter
-    def display_mode(self, value: DisplayMode) -> None:
-        """Setter for the display mode property."""
-        self.graph_mode_var.set(1 if value == DisplayMode.GRAPH else 0)
-
-    @property
-    def generator_type(self) -> Optional[Type[MazeGenerator]]:
-        """Return a MazeGenerator subclass indicating the current maze generator type."""
-        class_name = self.algorithm_var.get()
-        if not class_name:
-            return None
-        return next(
-            (cls for cls in self.app.SUPPORTED_GENERATORS if cls.__name__ == class_name),
-            self.app.DEFAULT_GENERATOR
-        )
-
-    @generator_type.setter
-    def generator_type(self, value: Type[MazeGenerator]) -> None:
-        """Setter for the generator_type property."""
-        self.algorithm_var.set(value.__name__)
-
-    @property
-    def size_category(self) -> SizeCategory:
-        """Return the current maze size category."""
-        size_name = self.maze_size_var.get()
-        return next((size for size in SizeCategory if size.name == size_name), self.app.DEFAULT_SIZE)
-
-    @size_category.setter
-    def size_category(self, value: SizeCategory) -> None:
-        """Setter for the size category property."""
-        self.maze_size_var.set(value.name)
-
-    @property
-    def maze_width(self) -> int:
-        """Return the current maze width (number of columns)."""
-        return int(self.maze_width_var.get())
-
-    @maze_width.setter
-    def maze_width(self, value: int) -> None:
-        """Setter for the maze width property."""
-        self.maze_width_var.set(str(value))
-
-    @property
-    def maze_height(self) -> int:
-        """Return the current maze height (number of rows)."""
-        return int(self.maze_height_var.get())
-
-    @maze_height.setter
-    def maze_height(self, value: int) -> None:
-        """Setter for the maze height property."""
-        self.maze_height_var.set(str(value))
-
-    def create_menu(self) -> None:
-        """Create a graphics element containing controls for the user to interact with the application."""
-        new_button = LabelButton(self, 'New Maze')
-        new_button.bind('<Button-1>', self.app.generate_new_maze)
-        new_button.pack(side='top')
-
-        self.create_spacer()
-
-        algorithm_button = LabelButton(self, 'Algorithm...')
-        algorithm_button.bind('<Button-1>', self.choose_algorithm)
-        algorithm_button.pack(side='top')
-
-        self.create_spacer()
-
-        size_button = LabelButton(self, 'Size...')
-        size_button.bind('<Button-1>', self.choose_size)
-        size_button.pack(side='top')
-
-        self.create_spacer()
-
-        solve_button = LabelButton(self, 'Solve')
-        solve_button.bind('<Button-1>', self.app.solve_maze)
-        solve_button.pack(side='top')
-
-        self.create_spacer(height=3)
-
-        graph_mode_button = tk.Checkbutton(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, padx=10,
-                                           text='Graph Mode', variable=self.graph_mode_var,
-                                           command=self.app.display_maze)
-        graph_mode_button.pack(side='top')
-
-        self.create_spacer()
-
-        animate_button = tk.Checkbutton(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, padx=10, text='Animate',
-                                        variable=self.animate_var, command=self.toggle_animate)
-        animate_button.pack(side='top')
-        self.animate = True
-
-        self.create_spacer(height=2)
-
-        self.speed_scale = tk.Scale(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, orient=tk.HORIZONTAL,
-                                    length=150, from_=MIN_SPEED, to=MAX_SPEED, command=self.update_animation_delay)
-        self.speed_scale.set(DEFAULT_SPEED)
-        self.speed_scale.pack(side='top')
-
-        delay_label = tk.Label(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='Speed')
-        delay_label.pack(side='top')
-
-    def create_spacer(self, parent: Optional[Any] = None, height: int = 1) -> None:
-        if parent is None:
-            parent = self
-
-        spacer = tk.Label(parent, bg=BACKGROUND_COLOR, height=height)
-        spacer.pack(side='top')
-
-    def toggle_animate(self) -> None:
-        """Event handler invoked when the 'Animate' checkbox's state is toggled."""
-        self.speed_scale['state'] = tk.NORMAL if self.animate else tk.DISABLED
-
-    def update_animation_delay(self, speed: int = DEFAULT_SPEED) -> None:
-        """Update the current animation delay (in milliseconds) based on the given speed (1 - 5)."""
-        delay_in_millis = 2 ** (11 - int(speed))
-        self.delay_millis = delay_in_millis
-
-    def choose_algorithm(self, event: tk.Event) -> None:
-        """Open a dialog box allowing the user to change the maze generation algorithm."""
-        if self.app.choosing_algorithm or self.app.generating_maze or self.app.solving_maze:
-            return
-
-        self.app.choosing_algorithm = True
-
-        algorithm_window = tk.Toplevel(bg=BACKGROUND_COLOR, padx=60, pady=10)
-        algorithm_window.title('Choose Maze Generation Algorithm')
-        algorithm_window.transient(self)
-
-        for generator_cls, button_name in self.app.SUPPORTED_GENERATORS.items():
-            button = tk.Radiobutton(algorithm_window, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, padx=5, pady=5,
-                                    selectcolor=PATH_COLOR, variable=self.algorithm_var,
-                                    text=button_name, value=generator_cls.__name__)
-            if generator_cls == self.generator_type:
-                button.select()
-            button.pack(side='top')
-
-        def dismiss_algorithm_window(e: Optional[tk.Event] = None) -> None:
-            algorithm_window.withdraw()
-            self.app.choosing_algorithm = False
-
-        self.create_spacer(algorithm_window)
-
-        ok_button = LabelButton(algorithm_window, 'OK')
-        ok_button.bind('<Button-1>', dismiss_algorithm_window)
-        ok_button.pack(side='top')
-
-        algorithm_window.protocol('WM_DELETE_WINDOW', dismiss_algorithm_window)
-
-    def choose_size(self, event: tk.Event) -> None:
-        """Open a dialog box allowing the user to change the maze size."""
-        if self.app.choosing_algorithm or self.app.generating_maze or self.app.solving_maze:
-            return
-
-        self.app.choosing_algorithm = True
-
-        size_window = tk.Toplevel(bg=BACKGROUND_COLOR, padx=60, pady=10)
-        size_window.title('Choose Maze Size')
-        size_window.transient(self)
-
-        dimension_label = tk.Label(size_window, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='Maze Dimensions')
-        dimension_label.pack(side='top')
-
-        dimension_frame = tk.Frame(size_window, bg=BACKGROUND_COLOR)
-        dimension_frame.pack(side='top')
-
-        width_textbox = tk.Entry(dimension_frame, font=FONT, justify=tk.CENTER, width=3, validate='focusout',
-                                 validatecommand=(self.register(self.validate_width), '%P'),
-                                 textvariable=self.maze_width_var)
-        width_textbox.pack(side='left')
-
-        x_label = tk.Label(dimension_frame, padx=20, pady=20, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='x')
-        x_label.pack(side='left')
-
-        height_textbox = tk.Entry(dimension_frame, font=FONT, justify=tk.CENTER, width=3, validate='focusout',
-                                  validatecommand=(self.register(self.validate_height), '%P'),
-                                  textvariable=self.maze_height_var)
-        height_textbox.pack(side='left')
-
-        self.create_spacer(size_window)
-
-        size_label = tk.Label(size_window, pady=10, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='Grid Size')
-        size_label.pack(side='top')
-
-        for size in SizeCategory:
-            button = tk.Radiobutton(size_window, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, padx=5, pady=5,
-                                    selectcolor=PATH_COLOR, variable=self.maze_size_var, text=size.name.title(),
-                                    value=size.name, command=self.app.refresh_canvas)
-            if size == self.size_category:
-                button.select()
-            button.pack(side='top')
-
-        def dismiss_size_window(e: Optional[tk.Event] = None) -> None:
-            size_window.withdraw()
-            self.app.choosing_algorithm = False
-
-        self.create_spacer(size_window)
-
-        ok_button = LabelButton(size_window, 'OK')
-        ok_button.bind('<Button-1>', dismiss_size_window)
-        ok_button.pack(side='top')
-
-        size_window.protocol('WM_DELETE_WINDOW', dismiss_size_window)
-
-    def validate_width(self, new_width: str) -> bool:
-        """Validator for the maze width text box."""
-        width = self.validate_dimension(new_width)
-        if width is None:
-            return False
-        if width != self.app.width:
-            self.app.width = width
-            self.app.refresh_canvas()
-        return True
-
-    def validate_height(self, new_height: str) -> bool:
-        """Validator for the maze height text box."""
-        height = self.validate_dimension(new_height)
-        if height is None:
-            return False
-        if height != self.app.height:
-            self.app.height = height
-            self.app.refresh_canvas()
-        return True
-
-    @staticmethod
-    def validate_dimension(new_dimension: str) -> Optional[int]:
-        """Validator for the maze width and maze height text boxes."""
-        try:
-            dimension = int(new_dimension)
-            if 0 < dimension <= MAX_MAZE_SIZE:
-                return dimension
-        except ValueError:
-            pass
-        return None
-
-
-class MazeApp(tk.Frame):
+from labyrinth.ui.colors import (
+    BACKGROUND_COLOR,
+    GENERATE_PATH_COLOR,
+    FRONTIER_COLOR,
+    INITIAL_CELL_COLOR,
+    PATH_COLOR,
+    VERTEX_COLOR,
+)
+from labyrinth.ui.common import Frame, Label, LEFT_CLICK, MOTION
+from labyrinth.ui.menu import DisplayMode, MazeAppMenu, SizeCategory
+
+
+class MazeApp(Frame):
     """Class containing state and graphics elements for rendering the UI."""
 
     BORDER_WIDTH = 4
     BORDER_OFFSET = BORDER_WIDTH * 2
 
     DEFAULT_SIZE = SizeCategory.SMALL
-
-    TICK_DELAY_MILLIS = 500
-
     DEFAULT_DISPLAY_MODE = DisplayMode.GRID
     DEFAULT_GENERATOR = DepthFirstSearchGenerator
 
@@ -348,6 +44,8 @@ class MazeApp(tk.Frame):
         PrimsGenerator: "Prim's Algorithm",
         WilsonsGenerator: "Wilson's Algorithm",
     }
+
+    TICK_DELAY_MILLIS = 500
 
     def __init__(self, master: tk.Tk = None, width: int = 10, height: int = 10,
                  generator: Optional[MazeGenerator] = None, validate_moves: bool = True) -> None:
@@ -364,7 +62,7 @@ class MazeApp(tk.Frame):
 
         self.generating_maze = False
         self.drawing_path = False
-        self.choosing_algorithm = False
+        self.using_dialog_box = False
         self.solving_maze = False
         self.maze_generated = False
         self._generator = generator
@@ -378,7 +76,7 @@ class MazeApp(tk.Frame):
 
         self.pack()
         self.menu = None
-        canvas_frame = tk.Frame(bg=BACKGROUND_COLOR)
+        canvas_frame = Frame()
         canvas_frame.pack(side='left')
         self.canvas = self.create_canvas(canvas_frame)
         self.stats = self.create_stats_display(canvas_frame)
@@ -446,11 +144,11 @@ class MazeApp(tk.Frame):
         """Return True if the current maze is solved, False otherwise."""
         return self.path and (self.path[-1].row, self.path[-1].column) == (self.height - 1, self.width - 1)
 
-    def create_canvas(self, parent: tk.Frame) -> tk.Canvas:
+    def create_canvas(self, parent: Frame) -> tk.Canvas:
         """Create and return a graphics canvas representing the grid of cells in the maze."""
         canvas = tk.Canvas(parent, width=self.canvas_width, height=self.canvas_height, borderwidth=0)
-        canvas.bind('<Button-1>', self.click_handler)
-        canvas.bind('<Motion>', self.motion_handler)
+        canvas.bind(LEFT_CLICK, self.click_handler)
+        canvas.bind(MOTION, self.motion_handler)
         canvas.pack(side='top')
         return canvas
 
@@ -463,15 +161,15 @@ class MazeApp(tk.Frame):
             self.display_maze()
 
     @staticmethod
-    def create_stats_display(parent: tk.Frame) -> tk.Label:
+    def create_stats_display(parent: Frame) -> Label:
         """Create and return a graphics element containing statistics about the current maze."""
-        stats = tk.Label(parent, padx=10, pady=10, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, width=62)
+        stats = Label(parent, padx=10, pady=10, width=62)
         stats.pack(side='top')
         return stats
 
     @staticmethod
     def create_horizontal_spacer() -> None:
-        tk.Label(bg=BACKGROUND_COLOR, width=2).pack(side='left')
+        Label(width=2).pack(side='left')
 
     @staticmethod
     def get_wall_tag(row: int, column: int, direction: Direction) -> str:
@@ -681,7 +379,7 @@ class MazeApp(tk.Frame):
 
     def solve_maze(self, event: Optional[tk.Event] = None) -> None:
         """Solve the current maze."""
-        if self.solving_maze or self.generating_maze or self.choosing_algorithm or not self.maze.start_cell.open_walls:
+        if self.solving_maze or self.generating_maze or self.using_dialog_box or not self.maze.start_cell.open_walls:
             return
 
         self.solving_maze = True
