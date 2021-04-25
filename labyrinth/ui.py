@@ -19,6 +19,12 @@ from labyrinth.maze import Maze
 from labyrinth.solve import MazeSolver
 
 
+MIN_SPEED = 1
+MAX_SPEED = 6
+DEFAULT_SPEED = MAX_SPEED
+
+MAX_MAZE_SIZE = 100
+
 DEFAULT_STEP_DELAY_MILLIS = 50
 
 FONT = ('Arial', 20)
@@ -37,6 +43,13 @@ class DisplayMode(Enum):
     GRAPH = 'graph'
 
 
+class SizeCategory(Enum):
+    # values are (cell_width, vertex_radius)
+    SMALL = (35, 10)
+    MEDIUM = (50, 15)
+    LARGE = (75, 20)
+
+
 class LabelButton(tk.Label):
 
     def __init__(self, parent: Any, text: str, **kwargs):
@@ -52,6 +65,9 @@ class MazeAppMenu(tk.Frame):
         self.app = app
 
         self.algorithm_var = tk.StringVar()
+        self.maze_size_var = tk.StringVar()
+        self.maze_width_var = tk.StringVar()
+        self.maze_height_var = tk.StringVar()
         self.animate_var = tk.IntVar()
         self.graph_mode_var = tk.IntVar()
         self.delay_millis = DEFAULT_STEP_DELAY_MILLIS
@@ -61,6 +77,8 @@ class MazeAppMenu(tk.Frame):
         self.create_menu()
 
         self.generator_type = self.app.generator.__class__
+        self.maze_width = self.app.width
+        self.maze_height = self.app.height
 
     @property
     def animate(self) -> bool:
@@ -98,6 +116,37 @@ class MazeAppMenu(tk.Frame):
         """Setter for the generator_type property."""
         self.algorithm_var.set(value.__name__)
 
+    @property
+    def size_category(self) -> SizeCategory:
+        """Return the current maze size category."""
+        size_name = self.maze_size_var.get()
+        return next((size for size in SizeCategory if size.name == size_name), self.app.DEFAULT_SIZE)
+
+    @size_category.setter
+    def size_category(self, value: SizeCategory) -> None:
+        """Setter for the size category property."""
+        self.maze_size_var.set(value.name)
+
+    @property
+    def maze_width(self) -> int:
+        """Return the current maze width (number of columns)."""
+        return int(self.maze_width_var.get())
+
+    @maze_width.setter
+    def maze_width(self, value: int) -> None:
+        """Setter for the maze width property."""
+        self.maze_width_var.set(str(value))
+
+    @property
+    def maze_height(self) -> int:
+        """Return the current maze height (number of rows)."""
+        return int(self.maze_height_var.get())
+
+    @maze_height.setter
+    def maze_height(self, value: int) -> None:
+        """Setter for the maze height property."""
+        self.maze_height_var.set(str(value))
+
     def create_menu(self) -> None:
         """Create a graphics element containing controls for the user to interact with the application."""
         new_button = LabelButton(self, 'New Maze')
@@ -109,6 +158,12 @@ class MazeAppMenu(tk.Frame):
         algorithm_button = LabelButton(self, 'Algorithm...')
         algorithm_button.bind('<Button-1>', self.choose_algorithm)
         algorithm_button.pack(side='top')
+
+        self.create_spacer()
+
+        size_button = LabelButton(self, 'Size...')
+        size_button.bind('<Button-1>', self.choose_size)
+        size_button.pack(side='top')
 
         self.create_spacer()
 
@@ -133,10 +188,11 @@ class MazeAppMenu(tk.Frame):
         self.create_spacer(height=2)
 
         self.speed_scale = tk.Scale(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, orient=tk.HORIZONTAL,
-                                    length=150, from_=10, to=100, command=self.update_animation_delay)
+                                    length=150, from_=MIN_SPEED, to=MAX_SPEED, command=self.update_animation_delay)
+        self.speed_scale.set(DEFAULT_SPEED)
         self.speed_scale.pack(side='top')
 
-        delay_label = tk.Label(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='Delay (ms)')
+        delay_label = tk.Label(self, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='Speed')
         delay_label.pack(side='top')
 
     def create_spacer(self, parent: Optional[Any] = None, height: int = 1) -> None:
@@ -150,9 +206,10 @@ class MazeAppMenu(tk.Frame):
         """Event handler invoked when the 'Animate' checkbox's state is toggled."""
         self.speed_scale['state'] = tk.NORMAL if self.animate else tk.DISABLED
 
-    def update_animation_delay(self, delay_in_millis: int = DEFAULT_STEP_DELAY_MILLIS) -> None:
-        """Update the current animation delay (in milliseconds) to the given value."""
-        self.delay_millis = int(delay_in_millis)
+    def update_animation_delay(self, speed: int = DEFAULT_SPEED) -> None:
+        """Update the current animation delay (in milliseconds) based on the given speed (1 - 5)."""
+        delay_in_millis = 2 ** (11 - int(speed))
+        self.delay_millis = delay_in_millis
 
     def choose_algorithm(self, event: tk.Event) -> None:
         """Open a dialog box allowing the user to change the maze generation algorithm."""
@@ -161,7 +218,7 @@ class MazeAppMenu(tk.Frame):
 
         self.app.choosing_algorithm = True
 
-        algorithm_window = tk.Toplevel(bg=BACKGROUND_COLOR, padx=20, pady=10)
+        algorithm_window = tk.Toplevel(bg=BACKGROUND_COLOR, padx=60, pady=10)
         algorithm_window.title('Choose Maze Generation Algorithm')
         algorithm_window.transient(self)
 
@@ -185,6 +242,92 @@ class MazeAppMenu(tk.Frame):
 
         algorithm_window.protocol('WM_DELETE_WINDOW', dismiss_algorithm_window)
 
+    def choose_size(self, event: tk.Event) -> None:
+        """Open a dialog box allowing the user to change the maze size."""
+        if self.app.choosing_algorithm or self.app.generating_maze or self.app.solving_maze:
+            return
+
+        self.app.choosing_algorithm = True
+
+        size_window = tk.Toplevel(bg=BACKGROUND_COLOR, padx=60, pady=10)
+        size_window.title('Choose Maze Size')
+        size_window.transient(self)
+
+        dimension_label = tk.Label(size_window, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='Maze Dimensions')
+        dimension_label.pack(side='top')
+
+        dimension_frame = tk.Frame(size_window, bg=BACKGROUND_COLOR)
+        dimension_frame.pack(side='top')
+
+        width_textbox = tk.Entry(dimension_frame, font=FONT, justify=tk.CENTER, width=3, validate='focusout',
+                                 validatecommand=(self.register(self.validate_width), '%P'),
+                                 textvariable=self.maze_width_var)
+        width_textbox.pack(side='left')
+
+        x_label = tk.Label(dimension_frame, padx=20, pady=20, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='x')
+        x_label.pack(side='left')
+
+        height_textbox = tk.Entry(dimension_frame, font=FONT, justify=tk.CENTER, width=3, validate='focusout',
+                                  validatecommand=(self.register(self.validate_height), '%P'),
+                                  textvariable=self.maze_height_var)
+        height_textbox.pack(side='left')
+
+        self.create_spacer(size_window)
+
+        size_label = tk.Label(size_window, pady=10, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, text='Grid Size')
+        size_label.pack(side='top')
+
+        for size in SizeCategory:
+            button = tk.Radiobutton(size_window, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=FONT, padx=5, pady=5,
+                                    selectcolor=PATH_COLOR, variable=self.maze_size_var, text=size.name.title(),
+                                    value=size.name, command=self.app.refresh_canvas)
+            if size == self.size_category:
+                button.select()
+            button.pack(side='top')
+
+        def dismiss_size_window(e: Optional[tk.Event] = None) -> None:
+            size_window.withdraw()
+            self.app.choosing_algorithm = False
+
+        self.create_spacer(size_window)
+
+        ok_button = LabelButton(size_window, 'OK')
+        ok_button.bind('<Button-1>', dismiss_size_window)
+        ok_button.pack(side='top')
+
+        size_window.protocol('WM_DELETE_WINDOW', dismiss_size_window)
+
+    def validate_width(self, new_width: str) -> bool:
+        """Validator for the maze width text box."""
+        width = self.validate_dimension(new_width)
+        if width is None:
+            return False
+        if width != self.app.width:
+            self.app.width = width
+            self.app.refresh_canvas()
+        return True
+
+    def validate_height(self, new_height: str) -> bool:
+        """Validator for the maze height text box."""
+        height = self.validate_dimension(new_height)
+        if height is None:
+            return False
+        if height != self.app.height:
+            self.app.height = height
+            self.app.refresh_canvas()
+        return True
+
+    @staticmethod
+    def validate_dimension(new_dimension: str) -> Optional[int]:
+        """Validator for the maze width and maze height text boxes."""
+        try:
+            dimension = int(new_dimension)
+            if 0 < dimension <= MAX_MAZE_SIZE:
+                return dimension
+        except ValueError:
+            pass
+        return None
+
 
 class MazeApp(tk.Frame):
     """Class containing state and graphics elements for rendering the UI."""
@@ -192,11 +335,7 @@ class MazeApp(tk.Frame):
     BORDER_WIDTH = 4
     BORDER_OFFSET = BORDER_WIDTH * 2
 
-    CELL_WIDTH = 35
-    CELL_HEIGHT = CELL_WIDTH
-
-    VERTEX_RADIUS = 10
-    VERTEX_DIAMETER = VERTEX_RADIUS * 2
+    DEFAULT_SIZE = SizeCategory.SMALL
 
     TICK_DELAY_MILLIS = 500
 
@@ -238,18 +377,50 @@ class MazeApp(tk.Frame):
         window.minsize(width=700, height=100)
 
         self.pack()
+        self.menu = None
         canvas_frame = tk.Frame(bg=BACKGROUND_COLOR)
         canvas_frame.pack(side='left')
         self.canvas = self.create_canvas(canvas_frame)
         self.stats = self.create_stats_display(canvas_frame)
         self.create_horizontal_spacer()
-        self.menu = None
         self.menu = MazeAppMenu(self)
         self.menu.pack(side='left')
 
         self.start_time = None
         self.end_time = None
         self.generate_new_maze(generate=False)
+
+    @property
+    def cell_width(self) -> int:
+        """Return the current cell width."""
+        size = self.DEFAULT_SIZE if self.menu is None else self.menu.size_category
+        return size.value[0]
+
+    @property
+    def cell_height(self) -> int:
+        """Return the current cell height."""
+        return self.cell_width
+
+    @property
+    def canvas_width(self) -> int:
+        """Return the current canvas width."""
+        return self.cell_width * self.width + self.BORDER_OFFSET
+
+    @property
+    def canvas_height(self) -> int:
+        """Return the current canvas height."""
+        return self.cell_height * self.height + self.BORDER_OFFSET
+
+    @property
+    def vertex_radius(self) -> int:
+        """Return the current vertex radius."""
+        size = self.DEFAULT_SIZE if self.menu is None else self.menu.size_category
+        return size.value[1]
+
+    @property
+    def vertex_diameter(self) -> int:
+        """Return the current vertex diameter."""
+        return self.vertex_radius * 2
 
     @property
     def generator_type(self) -> Type[MazeGenerator]:
@@ -277,13 +448,19 @@ class MazeApp(tk.Frame):
 
     def create_canvas(self, parent: tk.Frame) -> tk.Canvas:
         """Create and return a graphics canvas representing the grid of cells in the maze."""
-        width = self.CELL_WIDTH * self.width + self.BORDER_OFFSET
-        height = self.CELL_HEIGHT * self.height + self.BORDER_OFFSET
-        canvas = tk.Canvas(parent, width=width, height=height, borderwidth=0)
+        canvas = tk.Canvas(parent, width=self.canvas_width, height=self.canvas_height, borderwidth=0)
         canvas.bind('<Button-1>', self.click_handler)
         canvas.bind('<Motion>', self.motion_handler)
         canvas.pack(side='top')
         return canvas
+
+    def refresh_canvas(self) -> None:
+        """Refresh the canvas in response to maze size changes."""
+        if self.width != self.maze.width or self.height != self.maze.height:
+            self.generate_new_maze(generate=False)
+        if self.canvas_width != self.canvas['width'] or self.canvas_height != self.canvas['height']:
+            self.canvas.configure(width=self.canvas_width, height=self.canvas_height)
+            self.display_maze()
 
     @staticmethod
     def create_stats_display(parent: tk.Frame) -> tk.Label:
@@ -425,10 +602,10 @@ class MazeApp(tk.Frame):
         for row in range(self.height):
             for column in range(self.width):
                 cell = self.maze[row, column]
-                x0 = self.CELL_WIDTH * column + self.BORDER_OFFSET
-                y0 = self.CELL_HEIGHT * row + self.BORDER_OFFSET
-                x1 = x0 + self.CELL_WIDTH
-                y1 = y0 + self.CELL_HEIGHT
+                x0 = self.cell_width * column + self.BORDER_OFFSET
+                y0 = self.cell_height * row + self.BORDER_OFFSET
+                x1 = x0 + self.cell_width
+                y1 = y0 + self.cell_height
                 directions = {
                     Direction.N: ((x0, y0, x1, y0), lambda r, c: r == 0),
                     Direction.S: ((x0, y1, x1, y1), lambda r, c: r == self.height - 1),
@@ -458,14 +635,14 @@ class MazeApp(tk.Frame):
         for row in range(self.height):
             for column in range(self.width):
                 cell = self.maze[row, column]
-                cell_x0 = self.CELL_WIDTH * column + self.BORDER_OFFSET
-                cell_y0 = self.CELL_HEIGHT * row + self.BORDER_OFFSET
-                pad_x = (self.CELL_WIDTH - self.VERTEX_DIAMETER) // 2
-                pad_y = (self.CELL_HEIGHT - self.VERTEX_DIAMETER) // 2
+                cell_x0 = self.cell_width * column + self.BORDER_OFFSET
+                cell_y0 = self.cell_height * row + self.BORDER_OFFSET
+                pad_x = (self.cell_width - self.vertex_diameter) // 2
+                pad_y = (self.cell_height - self.vertex_diameter) // 2
                 vertex_x0 = cell_x0 + pad_x
                 vertex_y0 = cell_y0 + pad_y
-                vertex_x1 = vertex_x0 + self.VERTEX_DIAMETER
-                vertex_y1 = vertex_y0 + self.VERTEX_DIAMETER
+                vertex_x1 = vertex_x0 + self.vertex_diameter
+                vertex_y1 = vertex_y0 + self.vertex_diameter
                 tag = self.get_cell_tag(*cell.coordinates)
                 if cell.open_walls:
                     if cell in self.path:
@@ -481,11 +658,11 @@ class MazeApp(tk.Frame):
                         dash = () if self.maze_generated or direction in cell.open_walls else (2,)
                         if direction == Direction.E:
                             edge_x0 = vertex_x1
-                            edge_y0 = vertex_y0 + self.VERTEX_RADIUS
+                            edge_y0 = vertex_y0 + self.vertex_radius
                             edge_x1 = 1 + edge_x0 + pad_x * 2
                             edge_y1 = edge_y0
                         elif direction == Direction.S:
-                            edge_x0 = vertex_x0 + self.VERTEX_RADIUS
+                            edge_x0 = vertex_x0 + self.vertex_radius
                             edge_y0 = vertex_y1
                             edge_x1 = edge_x0
                             edge_y1 = 1 + edge_y0 + pad_y * 2
@@ -521,8 +698,8 @@ class MazeApp(tk.Frame):
 
     def get_selected_cell_coordinates(self, event: tk.Event) -> Tuple[int, int]:
         """Return the coordinates of the selected cell based on the (x, y) position of the given event."""
-        row = max(0, min(event.y // self.CELL_HEIGHT, self.height - 1))
-        column = max(0, min(event.x // self.CELL_WIDTH, self.width - 1))
+        row = max(0, min(event.y // self.cell_height, self.height - 1))
+        column = max(0, min(event.x // self.cell_width, self.width - 1))
         return row, column
 
     def select_cell(self, row: int, column: int) -> None:
@@ -562,10 +739,10 @@ class MazeApp(tk.Frame):
         if self.display_mode == DisplayMode.GRID:
             row_offset = 2 if cell.row in {0, self.height - 1} else 1
             column_offset = 2 if cell.column in {0, self.width - 1} else 1
-            x0 = self.CELL_WIDTH * cell.column + self.BORDER_OFFSET + column_offset
-            y0 = self.CELL_HEIGHT * cell.row + self.BORDER_OFFSET + row_offset
-            x1 = x0 + self.CELL_WIDTH - (2 if cell.column == self.width - 1 else 1) * column_offset
-            y1 = y0 + self.CELL_HEIGHT - (2 if cell.row == self.height - 1 else 1) * row_offset
+            x0 = self.cell_width * cell.column + self.BORDER_OFFSET + column_offset
+            y0 = self.cell_height * cell.row + self.BORDER_OFFSET + row_offset
+            x1 = x0 + self.cell_width - (2 if cell.column == self.width - 1 else 1) * column_offset
+            y1 = y0 + self.cell_height - (2 if cell.row == self.height - 1 else 1) * row_offset
             self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, width=0, tags=tag)
         else:
             self.canvas.itemconfigure(self.get_cell_tag(*cell.coordinates), fill=color)
