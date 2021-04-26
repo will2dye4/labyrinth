@@ -250,6 +250,39 @@ class TransformGridToGraph(MazeScene):
         self.pause()
 
 
+class GraphBasics(MazeScene):
+
+    def construct(self) -> None:
+        vertices = [
+            self.create_vertex(2, 1),
+            self.create_vertex(1, 3),
+            self.create_vertex(3, 3),
+        ]
+
+        edges = [
+            self.create_edge(vertices[0], vertices[1]),
+            self.create_edge(vertices[0], vertices[2]),
+            self.create_edge(vertices[1], vertices[2]),
+        ]
+
+        vertices_label = Text('Vertices').move_to(UP * 2 + LEFT * 2)
+        edges_label = Text('Edges').move_to(DOWN * 2 + LEFT * 2)
+
+        self.play_all(*[FadeIn(vertex, run_time=self.ANIMATION_RUN_TIME) for vertex in vertices], lag_ratio=0.2)
+        self.play_all(*[Create(edge, run_time=self.ANIMATION_RUN_TIME) for edge in edges], lag_ratio=0.5)
+        self.pause()
+
+        vertex_group = AnimationGroup(*[Indicate(vertex, run_time=self.ANIMATION_RUN_TIME) for vertex in vertices])
+        self.play(Write(vertices_label), vertex_group)
+        self.play(FadeOut(vertices_label))
+        self.pause()
+
+        edge_group = AnimationGroup(*[Indicate(edge, run_time=self.ANIMATION_RUN_TIME) for edge in edges])
+        self.play(Write(edges_label), edge_group)
+        self.play(FadeOut(edges_label))
+        self.pause()
+
+
 if __name__ == '__main__':
     scene_name = sys.argv[1] if len(sys.argv) > 1 else GraphToGrid.__name__
     sys.argv[1:] = ['-p', '-ql', __file__, scene_name]
