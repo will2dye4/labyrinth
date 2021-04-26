@@ -79,7 +79,7 @@ the program accepts.
 
 ```
 $ maze -h
-usage: maze [-h] [-a {dfs,kruskal,prim,wilson}] [-g] [dimensions]
+usage: maze [-h] [-a {dfs,kruskal,prim,wilson}] [-g | -s] [dimensions]
 
 Generate mazes using a variety of different algorithms.
 
