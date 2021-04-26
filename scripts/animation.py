@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from typing import List
+import math
 import random
 import sys
 
@@ -12,12 +13,23 @@ from labyrinth.maze import Maze
 from labyrinth.solve import MazeSolver
 
 
+def euclidean_distance(x0: float, y0: float, x1: float, y1: float) -> float:
+    return math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2)
+
+
+def line_distance(x0: float, y0: float, line: Line) -> float:
+    center_x, center_y, _ = line.get_center()
+    return euclidean_distance(x0, y0, center_x, center_y)
+
+
 class MazeScene(Scene):
 
     ANIMATION_RUN_TIME = 2
 
     NUM_COLUMNS = 5
     NUM_ROWS = NUM_COLUMNS
+
+    SHOW_TREE = True
 
     START_COORDS = LEFT * 3 + UP * 3
 
@@ -26,7 +38,7 @@ class MazeScene(Scene):
     VERTEX_OFFSET = 1.5
     VERTEX_RADIUS = 0.5
 
-    def __init__(self, as_tree: bool = True) -> None:
+    def __init__(self) -> None:
         super().__init__()
         self.walls = []
 
@@ -35,7 +47,7 @@ class MazeScene(Scene):
 
         self.maze = Maze(self.NUM_COLUMNS, self.NUM_ROWS)
         self.create_grid()
-        self.create_graph(as_tree=as_tree)
+        self.create_graph()
 
     @property
     def vertex_offset(self) -> float:
@@ -77,7 +89,7 @@ class MazeScene(Scene):
                             end_coords = start_coords + DOWN * self.vertex_offset
                             self.walls.append(new_wall(start_coords, end_coords))
 
-    def create_graph(self, as_tree: bool = True) -> None:
+    def create_graph(self) -> None:
         for row in range(self.NUM_ROWS):
             for column in range(self.NUM_COLUMNS):
                 coords = (row, column)
@@ -91,7 +103,7 @@ class MazeScene(Scene):
                     edges.append((self.create_edge(self.vertices[prev_coords], vertex), prev_coords))
                 for edge, prev_coords in edges:
                     cell = self.maze[coords]
-                    if as_tree:
+                    if self.SHOW_TREE:
                         prev_cell = self.maze[prev_coords]
                         if Direction.between(prev_cell, cell) in prev_cell.open_walls:
                             self.edges[(prev_coords, coords)] = edge
@@ -128,12 +140,19 @@ class MazeScene(Scene):
     def pause(self, duration: float = ANIMATION_RUN_TIME):
         self.wait(duration)
 
-    def animate_grid_creation(self, lag_ratio: float = 1) -> None:
+    def animate_grid_creation(self, style: str = 'distance_from_start', lag_ratio: float = 1) -> None:
         num_outer_walls = 4
         self.play(*[Create(wall, run_time=self.ANIMATION_RUN_TIME / 2) for wall in self.walls[:num_outer_walls]])
 
         inner_walls = self.walls[num_outer_walls:]
-        random.shuffle(inner_walls)
+        if style == 'distance_from_center':
+            inner_walls.sort(key=lambda l: line_distance(0, 0, l))
+        elif style == 'distance_from_start':
+            inner_walls.sort(key=lambda l: line_distance(self.START_COORDS[0], self.START_COORDS[1], l))
+        elif style == 'random':
+            random.shuffle(inner_walls)
+        elif style != 'order':
+            raise ValueError(f'Invalid style: {style}')
 
         self.play_all(*[Create(wall, run_time=self.ANIMATION_RUN_TIME / 10) for wall in inner_walls], lag_ratio=lag_ratio)
 
@@ -141,7 +160,7 @@ class MazeScene(Scene):
         self.play_all(*[FadeIn(vertex, run_time=self.ANIMATION_RUN_TIME / 4) for vertex in self.vertices.values()], lag_ratio=lag_ratio)
         self.play(*[Create(edge, run_time=self.ANIMATION_RUN_TIME) for edge in self.edges.values()])
 
-    def animate_edge_removal(self, lag_ratio: float = 0, highlight: bool = False) -> None:
+    def animate_edge_removal(self, lag_ratio: float = 0, highlight: bool = True) -> None:
         edges = self.get_edges_to_remove()
         if highlight:
             self.play(*[edge.animate(run_time=self.ANIMATION_RUN_TIME / 2).set_stroke(color=RED) for edge in edges])
@@ -149,6 +168,11 @@ class MazeScene(Scene):
 
     def animate_solution(self) -> None:
         self.play_all(*[vertex.animate(run_time=self.ANIMATION_RUN_TIME / 5).set_fill(GREEN, opacity=0.5) for vertex in self.get_solution()])
+
+    def transform_grid_to_graph(self) -> None:
+        grid_group = VGroup(*self.walls)
+        graph_group = VGroup(*(list(self.vertices.values()) + list(self.edges.values())))
+        self.play(ReplacementTransform(grid_group, graph_group, run_time=self.ANIMATION_RUN_TIME))
 
 
 class GridToGraph(MazeScene):
@@ -166,8 +190,7 @@ class GridToGraph(MazeScene):
 
 class GraphToGrid(MazeScene):
 
-    def __init__(self) -> None:
-        super().__init__(as_tree=False)
+    SHOW_TREE = False
 
     def construct(self) -> None:
         self.animate_graph_creation()
@@ -176,7 +199,7 @@ class GraphToGrid(MazeScene):
         self.animate_edge_removal()
         self.pause()
 
-        self.animate_grid_creation()
+        self.animate_grid_creation(style='order')
         self.pause()
 
         self.animate_solution()
@@ -188,18 +211,17 @@ class DrawGraph(MazeScene):
     NUM_COLUMNS = 10
     NUM_ROWS = NUM_COLUMNS
 
+    SHOW_TREE = False
+
     START_COORDS = LEFT * 3 + UP * 3.3
 
     SCALE_FACTOR = 0.5
-
-    def __init__(self) -> None:
-        super().__init__(as_tree=False)
 
     def construct(self) -> None:
         self.animate_graph_creation(lag_ratio=0.01)
         self.pause()
 
-        self.animate_edge_removal(lag_ratio=0.01, highlight=True)
+        self.animate_edge_removal(lag_ratio=0.01)
         self.pause()
 
         self.animate_solution()
@@ -215,6 +237,16 @@ class DrawMaze(MazeScene):
 
     def construct(self) -> None:
         self.animate_grid_creation(lag_ratio=0.2)
+        self.pause()
+
+
+class TransformGridToGraph(MazeScene):
+
+    def construct(self) -> None:
+        self.animate_grid_creation(style='random', lag_ratio=0.2)
+        self.pause()
+
+        self.transform_grid_to_graph()
         self.pause()
 
 
