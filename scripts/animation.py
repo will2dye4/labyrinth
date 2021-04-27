@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from typing import List
+from typing import Any, List, Optional
 import math
 import random
 import sys
@@ -8,7 +8,16 @@ import sys
 from manim import *
 from manim.__main__ import main
 
-from labyrinth.grid import Direction
+from labyrinth.generate import (
+    DepthFirstSearchGenerator,
+    KruskalsGenerator,
+    MazeGenerator,
+    MazeUpdate,
+    MazeUpdateType,
+    PrimsGenerator,
+    WilsonsGenerator,
+)
+from labyrinth.grid import Cell, Direction
 from labyrinth.maze import Maze
 from labyrinth.solve import MazeSolver
 
@@ -26,6 +35,10 @@ class MazeScene(Scene):
 
     ANIMATION_RUN_TIME = 2
 
+    DASHED_LINES = False
+
+    INITIAL_VERTEX_COLOR = BLUE
+
     NUM_COLUMNS = 5
     NUM_ROWS = NUM_COLUMNS
 
@@ -38,15 +51,14 @@ class MazeScene(Scene):
     VERTEX_OFFSET = 1.5
     VERTEX_RADIUS = 0.5
 
-    def __init__(self) -> None:
+    def __init__(self, generator: Optional[MazeGenerator] = DepthFirstSearchGenerator()) -> None:
         super().__init__()
         self.walls = []
 
         self.vertices = {}
         self.edges = {}
 
-        self.maze = Maze(self.NUM_COLUMNS, self.NUM_ROWS)
-        self.create_grid()
+        self.maze = Maze(width=self.NUM_COLUMNS, height=self.NUM_ROWS, generator=generator)
         self.create_graph()
 
     @property
@@ -112,14 +124,18 @@ class MazeScene(Scene):
 
     def create_vertex(self, row: int, column: int) -> Circle:
         coords = self.START_COORDS + (RIGHT * column * self.vertex_offset) + (DOWN * row * self.vertex_offset)
-        vertex = Circle(radius=self.vertex_radius).move_to(coords)
-        vertex.set_stroke(WHITE)
-        vertex.set_fill(BLUE, opacity=0.5)
+        vertex = Circle(radius=self.vertex_radius) \
+            .move_to(coords) \
+            .set_stroke(WHITE) \
+            .set_fill(self.INITIAL_VERTEX_COLOR, opacity=1)
         self.vertices[row, column] = vertex
         return vertex
 
-    def create_edge(self, start_vertex: Circle, end_vertex: Circle) -> Line:
-        return Line(start_vertex.get_center(), end_vertex.get_center(), buff=self.vertex_radius)
+    def create_edge(self, start_vertex: Circle, end_vertex: Circle, dashed: Optional[bool] = None) -> Line:
+        if dashed is None:
+            dashed = self.DASHED_LINES
+        line_type = DashedLine if dashed else Line
+        return line_type(start_vertex.get_center(), end_vertex.get_center(), buff=self.vertex_radius)
 
     def get_edges_to_remove(self) -> List[Line]:
         edges = []
@@ -141,6 +157,9 @@ class MazeScene(Scene):
         self.wait(duration)
 
     def animate_grid_creation(self, style: str = 'distance_from_start', lag_ratio: float = 1) -> None:
+        if not self.walls:
+            self.create_grid()
+
         num_outer_walls = 4
         self.play(*[Create(wall, run_time=self.ANIMATION_RUN_TIME / 2) for wall in self.walls[:num_outer_walls]])
 
@@ -160,6 +179,11 @@ class MazeScene(Scene):
         self.play_all(*[FadeIn(vertex, run_time=self.ANIMATION_RUN_TIME / 4) for vertex in self.vertices.values()], lag_ratio=lag_ratio)
         self.play(*[Create(edge, run_time=self.ANIMATION_RUN_TIME) for edge in self.edges.values()])
 
+    def animate_graph_destruction(self, lag_ratio: float = 0.1) -> None:
+        vertex_group = AnimationGroup(*[FadeOut(vertex, run_time=self.ANIMATION_RUN_TIME / 4) for vertex in self.vertices.values()], lag_ratio=lag_ratio)
+        edge_group = AnimationGroup(*[Uncreate(edge, run_time=self.ANIMATION_RUN_TIME / 2) for edge in self.edges.values()])
+        self.play(vertex_group, edge_group)
+
     def animate_edge_removal(self, lag_ratio: float = 0, highlight: bool = True) -> None:
         edges = self.get_edges_to_remove()
         if highlight:
@@ -167,7 +191,7 @@ class MazeScene(Scene):
         self.play_all(*[Uncreate(edge, run_time=self.ANIMATION_RUN_TIME) for edge in edges], lag_ratio=lag_ratio)
 
     def animate_solution(self) -> None:
-        self.play_all(*[vertex.animate(run_time=self.ANIMATION_RUN_TIME / 5).set_fill(GREEN, opacity=0.5) for vertex in self.get_solution()])
+        self.play_all(*[vertex.animate(run_time=self.ANIMATION_RUN_TIME / 5).set_fill(GREEN, opacity=1) for vertex in self.get_solution()])
 
     def transform_grid_to_graph(self) -> None:
         grid_group = VGroup(*self.walls)
@@ -281,6 +305,128 @@ class GraphBasics(MazeScene):
         self.play(Write(edges_label), edge_group)
         self.play(FadeOut(edges_label))
         self.pause()
+
+
+class MazeGenerationScene(MazeScene):
+
+    DASHED_LINES = True
+
+    FRONTIER_COLOR = GREEN
+    GENERATE_PATH_COLOR = ORANGE
+    INITIAL_VERTEX_COLOR = GRAY
+    VERTEX_COLOR = DARK_BLUE
+
+    GENERATOR_TYPE = DepthFirstSearchGenerator
+
+    SHOW_TREE = False
+
+    def __init__(self) -> None:
+        super().__init__(generator=None)
+        self.generator = self.GENERATOR_TYPE(event_listener=self.update_maze)
+        self.path = []
+
+    def get_fill_cell_animation(self, cell: Cell, color: Any) -> Animation:
+        return self.vertices[cell.row, cell.column] \
+            .animate(run_time=self.ANIMATION_RUN_TIME / 5) \
+            .set_fill(color, opacity=1)
+
+    def clear_path(self) -> None:
+        if self.path:
+            self.play(*[self.get_fill_cell_animation(cell, self.VERTEX_COLOR) for cell in self.path])
+            self.path.clear()
+
+    def fill_cell(self, cell: Cell, color: Any) -> None:
+        self.play(self.get_fill_cell_animation(cell, color))
+
+    def clear_cell(self, cell: Cell) -> None:
+        self.fill_cell(cell, self.VERTEX_COLOR)
+
+    def remove_wall(self, start_cell: Cell, end_cell: Cell) -> None:
+        start_coords = (start_cell.row, start_cell.column)
+        end_coords = (end_cell.row, end_cell.column)
+
+        if (start_coords, end_coords) not in self.edges:
+            start_coords, end_coords = end_coords, start_coords
+
+        cells = (start_coords, end_coords)
+        old_edge = self.edges[cells]
+        new_edge = self.create_edge(self.vertices[start_coords], self.vertices[end_coords], dashed=False)
+        self.edges[cells] = new_edge
+        self.play(ReplacementTransform(old_edge, new_edge, run_time=self.ANIMATION_RUN_TIME / 5))
+
+    def remove_edge(self, start_cell: Cell, end_cell: Cell) -> None:
+        start_coords = (start_cell.row, start_cell.column)
+        end_coords = (end_cell.row, end_cell.column)
+
+        if (start_coords, end_coords) not in self.edges:
+            start_coords, end_coords = end_coords, start_coords
+
+        cells = (start_coords, end_coords)
+        edge = self.edges.pop(cells)
+        self.play(Uncreate(edge, run_time=self.ANIMATION_RUN_TIME / 5))
+
+    def update_maze(self, state: MazeUpdate) -> None:
+        if state.type == MazeUpdateType.WALL_REMOVED:
+            if not self.path or state.start_cell != self.path[-1]:
+                self.clear_path()
+                self.path.append(state.start_cell)
+                self.fill_cell(state.start_cell, self.GENERATE_PATH_COLOR)
+            self.remove_wall(state.start_cell, state.end_cell)
+            self.path.append(state.end_cell)
+            self.fill_cell(state.end_cell, self.GENERATE_PATH_COLOR)
+        elif state.type == MazeUpdateType.CELL_MARKED:
+            self.clear_cell(state.start_cell)
+            self.play(*[self.get_fill_cell_animation(cell, self.FRONTIER_COLOR) for cell in state.new_frontier_cells])
+        elif state.type == MazeUpdateType.EDGE_REMOVED:
+            self.clear_path()
+            self.remove_edge(state.start_cell, state.end_cell)
+
+        if state.type == MazeUpdateType.WALL_REMOVED:
+            self.pause(self.ANIMATION_RUN_TIME / 10)
+
+    def animate_maze_generation(self) -> None:
+        self.clear_path()
+        self.generator.generate(self.maze)
+        self.clear_path()
+
+    def construct(self):
+        self.animate_graph_creation()
+        self.pause()
+
+        self.animate_maze_generation()
+        self.pause()
+
+        self.animate_edge_removal()
+        self.pause()
+
+        self.animate_grid_creation(style='order')
+        self.pause()
+
+        self.animate_graph_destruction()
+        self.pause()
+
+
+class DepthFirstSearchMazeGenerationScene(MazeGenerationScene):
+
+    GENERATOR_TYPE = DepthFirstSearchGenerator
+
+
+class KruskalsMazeGenerationScene(MazeGenerationScene):
+
+    GENERATOR_TYPE = KruskalsGenerator
+
+    def animate_edge_removal(self, lag_ratio: float = 0, highlight: bool = True) -> None:
+        pass
+
+
+class PrimsMazeGenerationScene(MazeGenerationScene):
+
+    GENERATOR_TYPE = PrimsGenerator
+
+
+class WilsonsMazeGenerationScene(MazeGenerationScene):
+
+    GENERATOR_TYPE = WilsonsGenerator
 
 
 if __name__ == '__main__':
