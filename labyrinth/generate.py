@@ -17,6 +17,7 @@ class MazeUpdateType(Enum):
     WALL_REMOVED = 1
     EDGE_REMOVED = 2
     CELL_MARKED = 3
+    START_CELL_CHOSEN = 4
 
 
 @dataclass
@@ -49,6 +50,13 @@ class MazeGenerator(abc.ABC, EventDispatcher[MazeUpdate]):
         if self.maze is None:
             raise ValueError('No current maze to get a random cell from!')
         return self.maze[random.randrange(self.maze.height), random.randrange(self.maze.width)]
+
+    def get_random_start_cell(self) -> Cell:
+        """Return a random cell in the maze and notify any event listener that the chosen cell is the starting cell."""
+        cell = self.get_random_cell()
+        state = MazeUpdate(type=MazeUpdateType.START_CELL_CHOSEN, start_cell=cell)
+        super().on_state_changed(state)
+        return cell
 
     def generate(self, maze: 'Maze') -> None:
         """Generate paths through the given maze."""
@@ -146,7 +154,7 @@ class PrimsGenerator(MazeGenerator):
         """Generate paths through a maze using a modified version of Prim's algorithm."""
         self.included_cells = set()
         self.frontier = set()
-        start_cell = self.get_random_cell()
+        start_cell = self.get_random_start_cell()
         self.mark(start_cell)
         while self.frontier:
             next_cell = self.frontier.pop()
@@ -195,7 +203,7 @@ class WilsonsGenerator(MazeGenerator):
     def generate_maze(self) -> None:
         """Generate paths through a maze using Wilson's algorithm for generating uniform spanning trees."""
         self.included_cells = set()
-        start_cell = self.get_random_cell()
+        start_cell = self.get_random_start_cell()
         self.included_cells.add(start_cell)
         while len(self.included_cells) < self.maze.width * self.maze.height:
             for cell, direction in self.walk():

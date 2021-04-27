@@ -1,6 +1,6 @@
 """Graphical user interface for the labyrinth program."""
 
-from typing import Optional, Tuple, Type
+from typing import Optional, Set, Tuple, Type
 import time
 import tkinter as tk
 
@@ -243,28 +243,26 @@ class MazeApp(Frame):
 
     def update_maze(self, state: MazeUpdate) -> None:
         """Event listener for the maze generator that updates the UI when the state changes."""
-        if state.type == MazeUpdateType.WALL_REMOVED:
-            self.remove_wall(state.start_cell, state.end_cell)
+        if state.type == MazeUpdateType.START_CELL_CHOSEN:
+            self.clear_cell(state.start_cell)
+        elif state.type == MazeUpdateType.WALL_REMOVED:
             if not self.path or state.start_cell != self.path[-1]:
                 self.clear_path()
                 self.path.append(state.start_cell)
                 self.fill_cell(state.start_cell, GENERATE_PATH_COLOR)
+            self.remove_wall(state.start_cell, state.end_cell)
             self.path.append(state.end_cell)
             self.fill_cell(state.end_cell, GENERATE_PATH_COLOR)
         elif state.type == MazeUpdateType.CELL_MARKED:
+            self.fill_frontier_cells(state.new_frontier_cells)
             self.clear_cell(state.start_cell)
-            for cell in state.new_frontier_cells:
-                self.fill_cell(cell, FRONTIER_COLOR, tag=self.get_cell_tag(*cell.coordinates))
         elif state.type == MazeUpdateType.EDGE_REMOVED and self.display_mode == DisplayMode.GRAPH:
-            direction = Direction.between(state.start_cell, state.end_cell)
-            tag = self.get_wall_tag(state.start_cell.row, state.start_cell.column, direction)
-            self.canvas.delete(tag)
-            opposite_tag = self.get_wall_tag(state.end_cell.row, state.end_cell.column, direction.opposite)
-            self.canvas.delete(opposite_tag)
+            self.clear_path()
+            self.remove_edge(state.start_cell, state.end_cell)
 
         self.canvas.update()
 
-        if state.type == MazeUpdateType.WALL_REMOVED:
+        if state.type in {MazeUpdateType.START_CELL_CHOSEN, MazeUpdateType.WALL_REMOVED}:
             time.sleep(self.menu.delay_millis / 1000)
 
     def remove_wall(self, start_cell: Cell, end_cell: Cell) -> None:
@@ -282,6 +280,14 @@ class MazeApp(Frame):
         else:
             for tag in {wall_tag, opposite_wall_tag}:
                 self.canvas.itemconfigure(tag, dash=())
+
+    def remove_edge(self, start_cell: Cell, end_cell: Cell) -> None:
+        """Remove the edge between the given start cell and end cell."""
+        direction = Direction.between(start_cell, end_cell)
+        tag = self.get_wall_tag(start_cell.row, start_cell.column, direction)
+        self.canvas.delete(tag)
+        opposite_tag = self.get_wall_tag(end_cell.row, end_cell.column, direction.opposite)
+        self.canvas.delete(opposite_tag)
 
     def clear_cell(self, cell: Cell) -> None:
         """Reset the given cell back to its default state on the canvas."""
@@ -453,6 +459,11 @@ class MazeApp(Frame):
             for cell in self.path:
                 self.canvas.itemconfigure(self.get_cell_tag(*cell.coordinates), fill=VERTEX_COLOR)
         self.path.clear()
+
+    def fill_frontier_cells(self, frontier_cells: Set[Cell]) -> None:
+        """Fill the given frontier cells with the frontier color."""
+        for cell in frontier_cells:
+            self.fill_cell(cell, FRONTIER_COLOR, tag=self.get_cell_tag(*cell.coordinates))
 
     @property
     def elapsed_time(self) -> float:

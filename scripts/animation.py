@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Set
 import math
 import random
 import sys
@@ -37,7 +37,7 @@ class MazeScene(Scene):
 
     DASHED_LINES = False
 
-    INITIAL_VERTEX_COLOR = BLUE
+    INITIAL_VERTEX_COLOR = DARK_BLUE
 
     NUM_COLUMNS = 5
     NUM_ROWS = NUM_COLUMNS
@@ -232,23 +232,13 @@ class GraphToGrid(MazeScene):
 
 class DrawGraph(MazeScene):
 
-    NUM_COLUMNS = 10
-    NUM_ROWS = NUM_COLUMNS
-
     SHOW_TREE = False
 
-    START_COORDS = LEFT * 3 + UP * 3.3
-
-    SCALE_FACTOR = 0.5
-
     def construct(self) -> None:
-        self.animate_graph_creation(lag_ratio=0.01)
+        self.animate_graph_creation(lag_ratio=0.1)
         self.pause()
 
-        self.animate_edge_removal(lag_ratio=0.01)
-        self.pause()
-
-        self.animate_solution()
+        self.animate_edge_removal(lag_ratio=0.05)
         self.pause()
 
 
@@ -335,6 +325,13 @@ class MazeGenerationScene(MazeScene):
             self.play(*[self.get_fill_cell_animation(cell, self.VERTEX_COLOR) for cell in self.path])
             self.path.clear()
 
+    def fill_frontier_cells(self, frontier_cells: Set[Cell]):
+        if frontier_cells:
+            self.play(*[self.get_fill_cell_animation(cell, self.FRONTIER_COLOR) for cell in frontier_cells])
+
+    def fill_generate_path_cell(self, cell: Cell) -> None:
+        self.fill_cell(cell, self.GENERATE_PATH_COLOR)
+
     def fill_cell(self, cell: Cell, color: Any) -> None:
         self.play(self.get_fill_cell_animation(cell, color))
 
@@ -363,30 +360,35 @@ class MazeGenerationScene(MazeScene):
 
         cells = (start_coords, end_coords)
         edge = self.edges.pop(cells)
-        self.play(Uncreate(edge, run_time=self.ANIMATION_RUN_TIME / 5))
+        self.play_all(
+            edge.animate(run_time=self.ANIMATION_RUN_TIME / 4).set_stroke(color=RED),
+            Uncreate(edge, run_time=self.ANIMATION_RUN_TIME / 2)
+        )
 
     def update_maze(self, state: MazeUpdate) -> None:
-        if state.type == MazeUpdateType.WALL_REMOVED:
+        if state.type == MazeUpdateType.START_CELL_CHOSEN:
+            self.clear_cell(state.start_cell)
+        elif state.type == MazeUpdateType.WALL_REMOVED:
             if not self.path or state.start_cell != self.path[-1]:
                 self.clear_path()
                 self.path.append(state.start_cell)
-                self.fill_cell(state.start_cell, self.GENERATE_PATH_COLOR)
+                self.fill_generate_path_cell(state.start_cell)
             self.remove_wall(state.start_cell, state.end_cell)
             self.path.append(state.end_cell)
-            self.fill_cell(state.end_cell, self.GENERATE_PATH_COLOR)
+            self.fill_generate_path_cell(state.end_cell)
         elif state.type == MazeUpdateType.CELL_MARKED:
-            self.clear_cell(state.start_cell)
-            self.play(*[self.get_fill_cell_animation(cell, self.FRONTIER_COLOR) for cell in state.new_frontier_cells])
+            self.fill_frontier_cells(state.new_frontier_cells)
+            self.clear_path()
         elif state.type == MazeUpdateType.EDGE_REMOVED:
             self.clear_path()
             self.remove_edge(state.start_cell, state.end_cell)
 
-        if state.type == MazeUpdateType.WALL_REMOVED:
+        if state.type in {MazeUpdateType.START_CELL_CHOSEN, MazeUpdateType.WALL_REMOVED}:
             self.pause(self.ANIMATION_RUN_TIME / 10)
 
     def animate_maze_generation(self) -> None:
         self.clear_path()
-        self.generator.generate(self.maze)
+        self.maze = Maze(width=self.NUM_COLUMNS, height=self.NUM_ROWS, generator=self.generator)
         self.clear_path()
 
     def construct(self):
@@ -403,7 +405,7 @@ class MazeGenerationScene(MazeScene):
         self.pause()
 
         self.animate_graph_destruction()
-        self.pause()
+        self.pause(self.ANIMATION_RUN_TIME * 2)
 
 
 class DepthFirstSearchMazeGenerationScene(MazeGenerationScene):
