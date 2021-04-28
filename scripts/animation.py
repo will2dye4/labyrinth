@@ -125,8 +125,11 @@ class MazeScene(Scene):
                     else:
                         self.edges[(prev_coords, coords)] = edge
 
+    def get_coordinates(self, row: int, column: int) -> Any:
+        return self.START_COORDS + (RIGHT * column * self.vertex_offset) + (DOWN * row * self.vertex_offset)
+
     def create_vertex(self, row: int, column: int) -> Circle:
-        coords = self.START_COORDS + (RIGHT * column * self.vertex_offset) + (DOWN * row * self.vertex_offset)
+        coords = self.get_coordinates(row, column)
         vertex = Circle(radius=self.vertex_radius) \
             .move_to(coords) \
             .set_stroke(WHITE) \
@@ -316,6 +319,47 @@ class GraphBasics(MazeScene):
         self.play(Write(edges_label), edge_group)
         self.play(FadeOut(edges_label))
         self.pause()
+
+
+class GraphToTree(MazeScene):
+
+    def construct(self) -> None:
+        start_vertex_coords = [
+            (1, 1),
+            (1, 3),
+            (3, 1),
+            (3, 3),
+        ]
+        start_vertices = [self.create_vertex(*coords) for coords in start_vertex_coords]
+
+        end_vertex_coords = [
+            (1, 2),
+            (2, 3),
+            (2, 1),
+            (3, 3),
+        ]
+        end_vertices = [self.create_vertex(*coords) for coords in end_vertex_coords]
+
+        edge_vertices = [  # not coordinates, but indices into the vertex lists
+            (0, 1),
+            (0, 2),
+            (1, 3)
+        ]
+        start_edges = [self.create_edge(start_vertices[i], start_vertices[j]) for i, j in edge_vertices]
+        end_edges = [self.create_edge(end_vertices[i], end_vertices[j]) for i, j in edge_vertices]
+
+        self.play_all(*[FadeIn(vertex, run_time=self.ANIMATION_RUN_TIME) for vertex in start_vertices], lag_ratio=0.1)
+        self.play_all(*[Create(edge, run_time=self.ANIMATION_RUN_TIME) for edge in start_edges], lag_ratio=0.1)
+        self.pause()
+
+        animations = [
+            start_vertices[i].animate(run_time=self.ANIMATION_RUN_TIME).move_to(end_vertices[i])
+            for i in range(3)
+        ] + [
+            Transform(start_edges[i], end_edges[i], run_time=self.ANIMATION_RUN_TIME) for i in range(len(start_edges))
+        ]
+
+        self.play(*animations)
 
 
 class MazeGenerationScene(MazeScene, MazeRenderer):
