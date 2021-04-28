@@ -9,15 +9,16 @@ import random
 
 from labyrinth.grid import Cell, Direction
 from labyrinth.utils.collections import DisjointSet
+from labyrinth.utils.abc import override
 from labyrinth.utils.event import EventDispatcher
 
 
 class MazeUpdateType(Enum):
     """Enumeration of all maze update event types."""
-    WALL_REMOVED = 1
-    EDGE_REMOVED = 2
-    CELL_MARKED = 3
-    START_CELL_CHOSEN = 4
+    START_CELL_CHOSEN = 1
+    CELL_MARKED = 2
+    EDGE_REMOVED = 3
+    WALL_REMOVED = 4
 
 
 @dataclass
@@ -97,6 +98,7 @@ class DepthFirstSearchGenerator(MazeGenerator):
             if not neighbor.open_walls:
                 self.prev_cells[neighbor] = cell
 
+    @override
     def generate_maze(self) -> None:
         """Generate paths through a maze using random depth-first search."""
         self.prev_cells = {}
@@ -115,6 +117,7 @@ class KruskalsGenerator(MazeGenerator):
         state = MazeUpdate(type=MazeUpdateType.EDGE_REMOVED, start_cell=start_cell, end_cell=end_cell)
         self.on_state_changed(state)
 
+    @override
     def generate_maze(self) -> None:
         """Generate paths through a maze using a modified version of Kruskal's algorithm."""
         walls = self.maze.walls
@@ -150,6 +153,7 @@ class PrimsGenerator(MazeGenerator):
         self.frontier |= new_frontier_cells
         self.on_cell_marked(cell, new_frontier_cells)
 
+    @override
     def generate_maze(self) -> None:
         """Generate paths through a maze using a modified version of Prim's algorithm."""
         self.included_cells = set()
@@ -200,6 +204,7 @@ class WilsonsGenerator(MazeGenerator):
             cell = self.maze.neighbor(cell, direction)
         return path
 
+    @override
     def generate_maze(self) -> None:
         """Generate paths through a maze using Wilson's algorithm for generating uniform spanning trees."""
         self.included_cells = set()

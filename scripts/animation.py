@@ -12,14 +12,14 @@ from labyrinth.generate import (
     DepthFirstSearchGenerator,
     KruskalsGenerator,
     MazeGenerator,
-    MazeUpdate,
-    MazeUpdateType,
     PrimsGenerator,
     WilsonsGenerator,
 )
 from labyrinth.grid import Cell, Direction
 from labyrinth.maze import Maze
+from labyrinth.render import MazeRenderer
 from labyrinth.solve import MazeSolver
+from labyrinth.utils.abc import override
 
 
 def euclidean_distance(x0: float, y0: float, x1: float, y1: float) -> float:
@@ -38,6 +38,7 @@ class MazeScene(Scene):
     DASHED_LINES = False
 
     INITIAL_VERTEX_COLOR = DARK_BLUE
+    WALL_COLOR = GOLD
 
     NUM_COLUMNS = 5
     NUM_ROWS = NUM_COLUMNS
@@ -76,15 +77,10 @@ class MazeScene(Scene):
         bottom_left = top_left + (DOWN * self.NUM_ROWS * self.vertex_offset)
         bottom_right = top_right + (DOWN * self.NUM_ROWS * self.vertex_offset)
 
-        def new_wall(start, end):
-            wall = Line(start, end)
-            wall.set_stroke(color=GOLD)
-            return wall
-
-        self.walls.append(new_wall(top_left, top_right))
-        self.walls.append(new_wall(top_left, bottom_left))
-        self.walls.append(new_wall(bottom_left, bottom_right))
-        self.walls.append(new_wall(top_right, bottom_right))
+        self.create_wall(top_left, top_right)
+        self.create_wall(top_left, bottom_left)
+        self.create_wall(bottom_left, bottom_right)
+        self.create_wall(top_right, bottom_right)
 
         for row in range(self.NUM_ROWS):
             for column in range(self.NUM_COLUMNS):
@@ -93,13 +89,20 @@ class MazeScene(Scene):
                     direction = Direction.between(cell, neighbor)
                     if direction not in cell.open_walls:
                         if direction == Direction.S:
-                            start_coords = top_left + (RIGHT * column * self.vertex_offset) + (DOWN * (row + 1) * self.vertex_offset)
+                            start_coords = top_left + (RIGHT * column * self.vertex_offset) + \
+                                           (DOWN * (row + 1) * self.vertex_offset)
                             end_coords = start_coords + RIGHT * self.vertex_offset
-                            self.walls.append(new_wall(start_coords, end_coords))
+                            self.create_wall(start_coords, end_coords)
                         elif direction == Direction.E:
-                            start_coords = top_left + (RIGHT * (column + 1) * self.vertex_offset) + (DOWN * row * self.vertex_offset)
+                            start_coords = top_left + (RIGHT * (column + 1) * self.vertex_offset) + \
+                                           (DOWN * row * self.vertex_offset)
                             end_coords = start_coords + DOWN * self.vertex_offset
-                            self.walls.append(new_wall(start_coords, end_coords))
+                            self.create_wall(start_coords, end_coords)
+
+    def create_wall(self, start: Any, end: Any) -> Line:
+        wall = Line(start, end).set_stroke(color=self.WALL_COLOR)
+        self.walls.append(wall)
+        return wall
 
     def create_graph(self) -> None:
         for row in range(self.NUM_ROWS):
@@ -173,15 +176,26 @@ class MazeScene(Scene):
         elif style != 'order':
             raise ValueError(f'Invalid style: {style}')
 
-        self.play_all(*[Create(wall, run_time=self.ANIMATION_RUN_TIME / 10) for wall in inner_walls], lag_ratio=lag_ratio)
+        self.play_all(
+            *[Create(wall, run_time=self.ANIMATION_RUN_TIME / 10) for wall in inner_walls],
+            lag_ratio=lag_ratio
+        )
 
     def animate_graph_creation(self, lag_ratio: float = 0.1) -> None:
-        self.play_all(*[FadeIn(vertex, run_time=self.ANIMATION_RUN_TIME / 4) for vertex in self.vertices.values()], lag_ratio=lag_ratio)
+        self.play_all(
+            *[FadeIn(vertex, run_time=self.ANIMATION_RUN_TIME / 4) for vertex in self.vertices.values()],
+            lag_ratio=lag_ratio
+        )
         self.play(*[Create(edge, run_time=self.ANIMATION_RUN_TIME) for edge in self.edges.values()])
 
     def animate_graph_destruction(self, lag_ratio: float = 0.1) -> None:
-        vertex_group = AnimationGroup(*[FadeOut(vertex, run_time=self.ANIMATION_RUN_TIME / 4) for vertex in self.vertices.values()], lag_ratio=lag_ratio)
-        edge_group = AnimationGroup(*[Uncreate(edge, run_time=self.ANIMATION_RUN_TIME / 2) for edge in self.edges.values()])
+        vertex_group = AnimationGroup(
+            *[FadeOut(vertex, run_time=self.ANIMATION_RUN_TIME / 4) for vertex in self.vertices.values()],
+            lag_ratio=lag_ratio
+        )
+        edge_group = AnimationGroup(
+            *[Uncreate(edge, run_time=self.ANIMATION_RUN_TIME / 2) for edge in self.edges.values()]
+        )
         self.play(vertex_group, edge_group)
 
     def animate_edge_removal(self, lag_ratio: float = 0, highlight: bool = True) -> None:
@@ -191,7 +205,8 @@ class MazeScene(Scene):
         self.play_all(*[Uncreate(edge, run_time=self.ANIMATION_RUN_TIME) for edge in edges], lag_ratio=lag_ratio)
 
     def animate_solution(self) -> None:
-        self.play_all(*[vertex.animate(run_time=self.ANIMATION_RUN_TIME / 5).set_fill(GREEN, opacity=1) for vertex in self.get_solution()])
+        run_time = self.ANIMATION_RUN_TIME / 5
+        self.play_all(*[vertex.animate(run_time=run_time).set_fill(GREEN, opacity=1) for vertex in self.get_solution()])
 
     def transform_grid_to_graph(self) -> None:
         grid_group = VGroup(*self.walls)
@@ -201,6 +216,7 @@ class MazeScene(Scene):
 
 class GridToGraph(MazeScene):
 
+    @override
     def construct(self) -> None:
         self.animate_grid_creation()
         self.pause()
@@ -216,6 +232,7 @@ class GraphToGrid(MazeScene):
 
     SHOW_TREE = False
 
+    @override
     def construct(self) -> None:
         self.animate_graph_creation()
         self.pause()
@@ -234,6 +251,7 @@ class DrawGraph(MazeScene):
 
     SHOW_TREE = False
 
+    @override
     def construct(self) -> None:
         self.animate_graph_creation(lag_ratio=0.1)
         self.pause()
@@ -249,6 +267,7 @@ class DrawMaze(MazeScene):
 
     SCALE_FACTOR = 0.5
 
+    @override
     def construct(self) -> None:
         self.animate_grid_creation(lag_ratio=0.2)
         self.pause()
@@ -256,6 +275,7 @@ class DrawMaze(MazeScene):
 
 class TransformGridToGraph(MazeScene):
 
+    @override
     def construct(self) -> None:
         self.animate_grid_creation(style='random', lag_ratio=0.2)
         self.pause()
@@ -266,6 +286,7 @@ class TransformGridToGraph(MazeScene):
 
 class GraphBasics(MazeScene):
 
+    @override
     def construct(self) -> None:
         vertices = [
             self.create_vertex(2, 1),
@@ -297,7 +318,7 @@ class GraphBasics(MazeScene):
         self.pause()
 
 
-class MazeGenerationScene(MazeScene):
+class MazeGenerationScene(MazeScene, MazeRenderer):
 
     DASHED_LINES = True
 
@@ -315,29 +336,31 @@ class MazeGenerationScene(MazeScene):
         self.generator = self.GENERATOR_TYPE(event_listener=self.update_maze)
         self.path = []
 
-    def get_fill_cell_animation(self, cell: Cell, color: Any) -> Animation:
-        return self.vertices[cell.row, cell.column] \
-            .animate(run_time=self.ANIMATION_RUN_TIME / 5) \
-            .set_fill(color, opacity=1)
+    @override
+    def set_start_cell(self, cell: Cell) -> None:
+        self.clear_cell(cell)
 
+    @override
     def clear_path(self) -> None:
         if self.path:
             self.play(*[self.get_fill_cell_animation(cell, self.VERTEX_COLOR) for cell in self.path])
             self.path.clear()
 
-    def fill_frontier_cells(self, frontier_cells: Set[Cell]):
+    @override
+    def add_cell_to_generated_path(self, cell: Cell) -> None:
+        self.path.append(cell)
+        self.fill_cell(cell, self.GENERATE_PATH_COLOR)
+
+    @override
+    def get_end_of_current_path(self) -> Optional[Cell]:
+        return self.path[-1] if self.path else None
+
+    @override
+    def add_cells_to_frontier(self, frontier_cells: Set[Cell]):
         if frontier_cells:
             self.play(*[self.get_fill_cell_animation(cell, self.FRONTIER_COLOR) for cell in frontier_cells])
 
-    def fill_generate_path_cell(self, cell: Cell) -> None:
-        self.fill_cell(cell, self.GENERATE_PATH_COLOR)
-
-    def fill_cell(self, cell: Cell, color: Any) -> None:
-        self.play(self.get_fill_cell_animation(cell, color))
-
-    def clear_cell(self, cell: Cell) -> None:
-        self.fill_cell(cell, self.VERTEX_COLOR)
-
+    @override
     def remove_wall(self, start_cell: Cell, end_cell: Cell) -> None:
         start_coords = (start_cell.row, start_cell.column)
         end_coords = (end_cell.row, end_cell.column)
@@ -351,6 +374,7 @@ class MazeGenerationScene(MazeScene):
         self.edges[cells] = new_edge
         self.play(ReplacementTransform(old_edge, new_edge, run_time=self.ANIMATION_RUN_TIME / 5))
 
+    @override
     def remove_edge(self, start_cell: Cell, end_cell: Cell) -> None:
         start_coords = (start_cell.row, start_cell.column)
         end_coords = (end_cell.row, end_cell.column)
@@ -365,32 +389,31 @@ class MazeGenerationScene(MazeScene):
             Uncreate(edge, run_time=self.ANIMATION_RUN_TIME / 2)
         )
 
-    def update_maze(self, state: MazeUpdate) -> None:
-        if state.type == MazeUpdateType.START_CELL_CHOSEN:
-            self.clear_cell(state.start_cell)
-        elif state.type == MazeUpdateType.WALL_REMOVED:
-            if not self.path or state.start_cell != self.path[-1]:
-                self.clear_path()
-                self.path.append(state.start_cell)
-                self.fill_generate_path_cell(state.start_cell)
-            self.remove_wall(state.start_cell, state.end_cell)
-            self.path.append(state.end_cell)
-            self.fill_generate_path_cell(state.end_cell)
-        elif state.type == MazeUpdateType.CELL_MARKED:
-            self.fill_frontier_cells(state.new_frontier_cells)
-            self.clear_path()
-        elif state.type == MazeUpdateType.EDGE_REMOVED:
-            self.clear_path()
-            self.remove_edge(state.start_cell, state.end_cell)
+    @override
+    def delay(self) -> None:
+        self.pause(self.ANIMATION_RUN_TIME / 10)
 
-        if state.type in {MazeUpdateType.START_CELL_CHOSEN, MazeUpdateType.WALL_REMOVED}:
-            self.pause(self.ANIMATION_RUN_TIME / 10)
+    @override
+    def refresh(self) -> None:
+        pass
+
+    def get_fill_cell_animation(self, cell: Cell, color: Any) -> Animation:
+        return self.vertices[cell.row, cell.column] \
+            .animate(run_time=self.ANIMATION_RUN_TIME / 5) \
+            .set_fill(color, opacity=1)
+
+    def fill_cell(self, cell: Cell, color: Any) -> None:
+        self.play(self.get_fill_cell_animation(cell, color))
+
+    def clear_cell(self, cell: Cell) -> None:
+        self.fill_cell(cell, self.VERTEX_COLOR)
 
     def animate_maze_generation(self) -> None:
         self.clear_path()
-        self.maze = Maze(width=self.NUM_COLUMNS, height=self.NUM_ROWS, generator=self.generator)
+        self.generator.generate(self.maze)
         self.clear_path()
 
+    @override
     def construct(self):
         self.animate_graph_creation()
         self.pause()
@@ -417,6 +440,7 @@ class KruskalsMazeGenerationScene(MazeGenerationScene):
 
     GENERATOR_TYPE = KruskalsGenerator
 
+    @override
     def animate_edge_removal(self, lag_ratio: float = 0, highlight: bool = True) -> None:
         pass
 

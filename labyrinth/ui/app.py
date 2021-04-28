@@ -8,13 +8,13 @@ from labyrinth.generate import (
     DepthFirstSearchGenerator,
     KruskalsGenerator,
     MazeGenerator,
-    MazeUpdate,
     MazeUpdateType,
     PrimsGenerator,
     WilsonsGenerator,
 )
 from labyrinth.grid import Cell, Direction
 from labyrinth.maze import Maze
+from labyrinth.render import MazeRenderer
 from labyrinth.solve import MazeSolver
 from labyrinth.ui.colors import (
     BACKGROUND_COLOR,
@@ -26,9 +26,10 @@ from labyrinth.ui.colors import (
 )
 from labyrinth.ui.common import Frame, Label, LEFT_CLICK, MOTION
 from labyrinth.ui.menu import DisplayMode, MazeAppMenu, SizeCategory
+from labyrinth.utils.abc import override
 
 
-class MazeApp(Frame):
+class MazeApp(Frame, MazeRenderer):
     """Class containing state and graphics elements for rendering the UI."""
 
     BORDER_WIDTH = 4
@@ -37,6 +38,8 @@ class MazeApp(Frame):
     DEFAULT_SIZE = SizeCategory.SMALL
     DEFAULT_DISPLAY_MODE = DisplayMode.GRID
     DEFAULT_GENERATOR = DepthFirstSearchGenerator
+
+    DELAY_EVENT_TYPES = {MazeUpdateType.START_CELL_CHOSEN, MazeUpdateType.CELL_MARKED, MazeUpdateType.WALL_REMOVED}
 
     SUPPORTED_GENERATORS = {
         DepthFirstSearchGenerator: "Depth First Search",
@@ -68,6 +71,8 @@ class MazeApp(Frame):
         self._generator = generator
         self.solver = MazeSolver()
         self.maze = None
+        self.generation_start_cell = None
+        self.frontier_cells = set()
         self.path = []
 
         window = self.winfo_toplevel()
@@ -144,6 +149,14 @@ class MazeApp(Frame):
         """Return True if the current maze is solved, False otherwise."""
         return self.path and (self.path[-1].row, self.path[-1].column) == (self.height - 1, self.width - 1)
 
+    @property
+    def elapsed_time(self) -> float:
+        """Return the amount of time elapsed since the current maze was fully generated."""
+        if self.start_time is not None:
+            end_time = self.end_time or time.time()
+            return end_time - self.start_time
+        return 0
+
     def create_canvas(self, parent: Frame) -> tk.Canvas:
         """Create and return a graphics canvas representing the grid of cells in the maze."""
         canvas = tk.Canvas(parent, width=self.canvas_width, height=self.canvas_height, borderwidth=0)
@@ -213,6 +226,8 @@ class MazeApp(Frame):
             return
 
         self.clear_path()
+        self.frontier_cells.clear()
+        self.generation_start_cell = None
         self.maze = Maze(self.width, self.height, generator=None)
         self.maze_generated = False
         self.start_time = None
@@ -241,63 +256,6 @@ class MazeApp(Frame):
         self.start_time = time.time()
         self.end_time = None
 
-    def update_maze(self, state: MazeUpdate) -> None:
-        """Event listener for the maze generator that updates the UI when the state changes."""
-        if state.type == MazeUpdateType.START_CELL_CHOSEN:
-            self.clear_cell(state.start_cell)
-        elif state.type == MazeUpdateType.WALL_REMOVED:
-            if not self.path or state.start_cell != self.path[-1]:
-                self.clear_path()
-                self.path.append(state.start_cell)
-                self.fill_cell(state.start_cell, GENERATE_PATH_COLOR)
-            self.remove_wall(state.start_cell, state.end_cell)
-            self.path.append(state.end_cell)
-            self.fill_cell(state.end_cell, GENERATE_PATH_COLOR)
-        elif state.type == MazeUpdateType.CELL_MARKED:
-            self.fill_frontier_cells(state.new_frontier_cells)
-            self.clear_cell(state.start_cell)
-        elif state.type == MazeUpdateType.EDGE_REMOVED and self.display_mode == DisplayMode.GRAPH:
-            self.clear_path()
-            self.remove_edge(state.start_cell, state.end_cell)
-
-        self.canvas.update()
-
-        if state.type in {MazeUpdateType.START_CELL_CHOSEN, MazeUpdateType.WALL_REMOVED}:
-            time.sleep(self.menu.delay_millis / 1000)
-
-    def remove_wall(self, start_cell: Cell, end_cell: Cell) -> None:
-        """Remove the wall between the given start cell and end cell, also clearing any color from the cells."""
-        direction = Direction.between(start_cell, end_cell)
-        wall_tag = self.get_wall_tag(start_cell.row, start_cell.column, direction)
-        opposite_wall_tag = self.get_wall_tag(end_cell.row, end_cell.column, direction.opposite)
-        if self.display_mode == DisplayMode.GRID:
-            self.canvas.delete(wall_tag)
-            self.canvas.delete(opposite_wall_tag)
-            start_cell_tag = self.get_cell_tag(start_cell.row, start_cell.column)
-            self.canvas.delete(start_cell_tag)
-            end_cell_tag = self.get_cell_tag(end_cell.row, end_cell.column)
-            self.canvas.delete(end_cell_tag)
-        else:
-            for tag in {wall_tag, opposite_wall_tag}:
-                self.canvas.itemconfigure(tag, dash=())
-
-    def remove_edge(self, start_cell: Cell, end_cell: Cell) -> None:
-        """Remove the edge between the given start cell and end cell."""
-        direction = Direction.between(start_cell, end_cell)
-        tag = self.get_wall_tag(start_cell.row, start_cell.column, direction)
-        self.canvas.delete(tag)
-        opposite_tag = self.get_wall_tag(end_cell.row, end_cell.column, direction.opposite)
-        self.canvas.delete(opposite_tag)
-
-    def clear_cell(self, cell: Cell) -> None:
-        """Reset the given cell back to its default state on the canvas."""
-        tag = self.get_cell_tag(*cell.coordinates)
-        if self.display_mode == DisplayMode.GRID:
-            self.canvas.delete(tag)
-            self.fill_cell(cell, 'white')
-        else:
-            self.canvas.itemconfigure(tag, fill=VERTEX_COLOR)
-
     def create_maze_grid(self) -> None:
         """Populate the canvas with all of the walls in the current maze."""
         for obj in self.canvas.find_all():
@@ -324,12 +282,14 @@ class MazeApp(Frame):
                             width = self.BORDER_WIDTH
                         wall_tag = self.get_wall_tag(row, column, direction)
                         self.canvas.create_line(*coordinates, width=width, tags=wall_tag)
-                    if not cell.open_walls:
-                        cell_tag = self.get_cell_tag(row, column)
-                        self.fill_cell(cell, INITIAL_CELL_COLOR, cell_tag)
+                    cell_tag = self.get_cell_tag(row, column)
+                    if cell in self.frontier_cells:
+                        self.fill_cell(cell, FRONTIER_COLOR, cell_tag)
                     elif cell in self.path:
                         color = GENERATE_PATH_COLOR if self.generating_maze else PATH_COLOR
                         self.fill_cell(cell, color)
+                    elif not cell.open_walls and cell != self.generation_start_cell:
+                        self.fill_cell(cell, INITIAL_CELL_COLOR, cell_tag)
 
     def create_maze_graph(self) -> None:
         """Populate the canvas with a visual representation of the graph underlying the current maze."""
@@ -348,7 +308,11 @@ class MazeApp(Frame):
                 vertex_x1 = vertex_x0 + self.vertex_diameter
                 vertex_y1 = vertex_y0 + self.vertex_diameter
                 tag = self.get_cell_tag(*cell.coordinates)
-                if cell.open_walls:
+                if self.generating_maze and cell == self.generation_start_cell:
+                    color = VERTEX_COLOR
+                elif cell in self.frontier_cells:
+                    color = FRONTIER_COLOR
+                elif cell.open_walls:
                     if cell in self.path:
                         color = GENERATE_PATH_COLOR if self.generating_maze else PATH_COLOR
                     else:
@@ -451,6 +415,22 @@ class MazeApp(Frame):
         else:
             self.canvas.itemconfigure(self.get_cell_tag(*cell.coordinates), fill=color)
 
+    def clear_cell(self, cell: Cell) -> None:
+        """Reset the given cell back to its default state on the canvas."""
+        tag = self.get_cell_tag(*cell.coordinates)
+        if self.display_mode == DisplayMode.GRID:
+            self.canvas.delete(tag)
+            self.fill_cell(cell, 'white')
+        else:
+            self.canvas.itemconfigure(tag, fill=VERTEX_COLOR)
+
+    @override
+    def set_start_cell(self, cell: Cell) -> None:
+        """Update the cell where the maze generator chose to start."""
+        self.generation_start_cell = cell
+        self.clear_cell(cell)
+
+    @override
     def clear_path(self) -> None:
         """Clear the current path of highlighted cells in the maze."""
         if self.display_mode == DisplayMode.GRID:
@@ -460,18 +440,63 @@ class MazeApp(Frame):
                 self.canvas.itemconfigure(self.get_cell_tag(*cell.coordinates), fill=VERTEX_COLOR)
         self.path.clear()
 
-    def fill_frontier_cells(self, frontier_cells: Set[Cell]) -> None:
-        """Fill the given frontier cells with the frontier color."""
-        for cell in frontier_cells:
-            self.fill_cell(cell, FRONTIER_COLOR, tag=self.get_cell_tag(*cell.coordinates))
+    @override
+    def add_cell_to_generated_path(self, cell: Cell) -> None:
+        """Fill the given cell with the 'generate path' color."""
+        if cell in self.frontier_cells:
+            self.frontier_cells.remove(cell)
+        self.path.append(cell)
+        self.fill_cell(cell, GENERATE_PATH_COLOR)
 
-    @property
-    def elapsed_time(self) -> float:
-        """Return the amount of time elapsed since the current maze was fully generated."""
-        if self.start_time is not None:
-            end_time = self.end_time or time.time()
-            return end_time - self.start_time
-        return 0
+    @override
+    def get_end_of_current_path(self) -> Optional[Cell]:
+        """Return the cell at the end of the path currently being generated, if any."""
+        return self.path[-1] if self.path else None
+
+    @override
+    def add_cells_to_frontier(self, frontier_cells: Set[Cell]) -> None:
+        """Fill the given frontier cells with the frontier color and add them to the set of frontier cells."""
+        if frontier_cells:
+            self.frontier_cells |= frontier_cells
+            for cell in frontier_cells:
+                self.fill_cell(cell, FRONTIER_COLOR, tag=self.get_cell_tag(*cell.coordinates))
+
+    @override
+    def remove_wall(self, start_cell: Cell, end_cell: Cell) -> None:
+        """Remove the wall between the given start cell and end cell, also clearing any color from the cells."""
+        direction = Direction.between(start_cell, end_cell)
+        wall_tag = self.get_wall_tag(start_cell.row, start_cell.column, direction)
+        opposite_wall_tag = self.get_wall_tag(end_cell.row, end_cell.column, direction.opposite)
+        if self.display_mode == DisplayMode.GRID:
+            self.canvas.delete(wall_tag)
+            self.canvas.delete(opposite_wall_tag)
+            start_cell_tag = self.get_cell_tag(start_cell.row, start_cell.column)
+            self.canvas.delete(start_cell_tag)
+            end_cell_tag = self.get_cell_tag(end_cell.row, end_cell.column)
+            self.canvas.delete(end_cell_tag)
+        else:
+            for tag in {wall_tag, opposite_wall_tag}:
+                self.canvas.itemconfigure(tag, dash=())
+
+    @override
+    def remove_edge(self, start_cell: Cell, end_cell: Cell) -> None:
+        """Remove the edge between the given start cell and end cell (if rendering the maze as a graph)."""
+        if self.display_mode == DisplayMode.GRAPH:
+            direction = Direction.between(start_cell, end_cell)
+            tag = self.get_wall_tag(start_cell.row, start_cell.column, direction)
+            self.canvas.delete(tag)
+            opposite_tag = self.get_wall_tag(end_cell.row, end_cell.column, direction.opposite)
+            self.canvas.delete(opposite_tag)
+
+    @override
+    def delay(self) -> None:
+        """Delay rendering to allow the user to see the latest updates."""
+        time.sleep(self.menu.delay_millis / 1000)
+
+    @override
+    def refresh(self) -> None:
+        """Refresh the canvas after applying updates."""
+        self.canvas.update()
 
     def tick(self) -> None:
         """Update the UI on a regular interval."""
