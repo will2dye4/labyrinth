@@ -50,7 +50,7 @@ the program accepts.
 
 ```
 $ maze -h
-usage: maze [-h] [-a {dfs,kruskal,prim,wilson}] [-g | -s] [dimensions]
+usage: maze [-h] [-a {dfs,kruskal,prim,wilson}] [-g | -m | -l | -s] [dimensions]
 
 Generate mazes using a variety of different algorithms.
 
@@ -62,7 +62,11 @@ optional arguments:
   -a {dfs,kruskal,prim,wilson}, --algorithm {dfs,kruskal,prim,wilson}
                         The algorithm to use to generate the maze
   -g, --gui, --ui       Display a GUI showing the maze being generated
-  -s, --solve           Show the solution to the maze
+  -m, --medium, --medium-size
+                        Open the GUI with medium sized cells instead of small (the default)
+  -l, --large, --large-size
+                        Open the GUI with large sized cells instead of small (the default)
+  -s, --solve           Show the solution to the maze (only applies to non-GUI mode)
 ```
 
 Typical usage is `maze <dimensions>`, where `<dimensions>` is a string like `10x10`
@@ -145,13 +149,15 @@ of two (2).
 
 In order to visualize the process of generating mazes, the program also has a GUI mode,
 which can be activated with the `-g` (`--gui`) flag to `maze`, or by simply invoking `maze-ui`
-instead of `maze`. When running in GUI mode, only error output is printed to the console,
-and a window will open containing a visual representation of the maze and controls for generating
-new mazes using the different algorithms described above. Once a maze has been generated, clicking
-and dragging from the top left corner of the maze allows the user to solve the maze if they wish; the
-goal is to reach the bottom right corner. While a maze is being generated or solved, the GUI also
-displays statistics that show the size of the maze, the length of the current path through the maze,
-and how much time has elapsed since the maze was generated (i.e., how long it has taken you to solve it!).
+instead of `maze`. By default, the GUI will render the maze with small cells, but the `-m` (`--medium`)
+or `-l` (`--large`) flags may be passed instead of the `-g` flag to increase the size of the cells.
+When running in GUI mode, only error output is printed to the console, and a window will open containing
+a visual representation of the maze and controls for generating new mazes using the different algorithms
+described [here](./docs/generation_algorithms.md). Once a maze has been generated, clicking and dragging
+from the top left corner of the maze allows the user to solve the maze if they wish; the goal is to reach
+the bottom right corner. While a maze is being generated or solved, the GUI also displays statistics that
+show the size of the maze, the length of the current path through the maze, and how much time has elapsed
+since the maze was generated (i.e., how long it has taken you to solve it!).
 
 By default, the generation of new mazes will be animated, showing the current path being added to the maze
 at each step of the process, but this behavior can be disabled by unchecking the `Animate` box on

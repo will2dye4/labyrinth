@@ -48,7 +48,7 @@ class MazeAppMenu(Frame):
 
     MAX_MAZE_SIZE = 100
 
-    def __init__(self, app: 'MazeApp', **kwargs) -> None:
+    def __init__(self, app: 'MazeApp', size_category: Optional[SizeCategory] = None, **kwargs) -> None:
         """Initialize a MazeAppMenu."""
         super().__init__(padx=10, pady=10, **kwargs)
         self.app = app
@@ -66,6 +66,7 @@ class MazeAppMenu(Frame):
         self.create_menu()
 
         self.update_animation_delay()
+        self.size_category = size_category
         self.generator_type = self.app.generator.__class__
         self.maze_width = self.app.width
         self.maze_height = self.app.height
@@ -113,9 +114,10 @@ class MazeAppMenu(Frame):
         return next((size for size in SizeCategory if size.name == size_name), self.app.DEFAULT_SIZE)
 
     @size_category.setter
-    def size_category(self, value: SizeCategory) -> None:
+    def size_category(self, value: Optional[SizeCategory]) -> None:
         """Setter for the size category property."""
-        self.maze_size_var.set(value.name)
+        if value is not None:
+            self.maze_size_var.set(value.name)
 
     @property
     def maze_width(self) -> int:

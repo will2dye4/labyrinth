@@ -13,7 +13,7 @@ from labyrinth.generate import (
 )
 from labyrinth.maze import Maze
 from labyrinth.solve import MazeSolver
-from labyrinth.ui import MazeApp
+from labyrinth.ui import MazeApp, SizeCategory
 
 
 class LabyrinthMain:
@@ -29,10 +29,17 @@ class LabyrinthMain:
     def __init__(self, gui: bool = False) -> None:
         """Initialize a LabyrinthMain."""
         parsed_args = self.parse_args(sys.argv[1:])
-        self.gui = gui or parsed_args.gui
+        self.gui = gui or parsed_args.gui or parsed_args.medium or parsed_args.large
         self.solve = parsed_args.solve
         self.generator = self.ALGORITHM_CHOICES[parsed_args.algorithm]()
         self.width, self.height = parsed_args.dimensions
+
+        if parsed_args.medium:
+            self.size_category = SizeCategory.MEDIUM
+        elif parsed_args.large:
+            self.size_category = SizeCategory.LARGE
+        else:
+            self.size_category = SizeCategory.SMALL
 
     @classmethod
     def parse_args(cls, args: List[str]) -> argparse.Namespace:
@@ -43,12 +50,16 @@ class LabyrinthMain:
         parser.add_argument('-a', '--algorithm', choices=sorted(cls.ALGORITHM_CHOICES.keys()), default='dfs',
                             help='The algorithm to use to generate the maze')
 
-        # use a group to prevent passing --gui and --solve at the same time
+        # use a group to prevent passing --gui/--medium/--large and --solve at the same time
         group = parser.add_mutually_exclusive_group()
         group.add_argument('-g', '--gui', '--ui', action='store_true',
                            help='Display a GUI showing the maze being generated')
+        group.add_argument('-m', '--medium', '--medium-size', action='store_true',
+                           help='Open the GUI with medium sized cells instead of small (the default)')
+        group.add_argument('-l', '--large', '--large-size', action='store_true',
+                           help='Open the GUI with large sized cells instead of small (the default)')
         group.add_argument('-s', '--solve', action='store_true',
-                           help='Show the solution to the maze')
+                           help='Show the solution to the maze (only applies to non-GUI mode)')
 
         return parser.parse_args(args)
 
@@ -64,7 +75,7 @@ class LabyrinthMain:
     def run_gui(self) -> None:
         """Launch a graphical maze generator window."""
         os.environ['TK_SILENCE_DEPRECATION'] = '1'
-        app = MazeApp(width=self.width, height=self.height, generator=self.generator)
+        app = MazeApp(width=self.width, height=self.height, size_category=self.size_category, generator=self.generator)
         app.run()
 
     def run(self) -> None:

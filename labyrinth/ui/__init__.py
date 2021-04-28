@@ -1,1 +1,1 @@
-from labyrinth.ui.app import MazeApp
+from labyrinth.ui.app import MazeApp, SizeCategory

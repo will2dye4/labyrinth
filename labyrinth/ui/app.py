@@ -51,7 +51,8 @@ class MazeApp(Frame, MazeRenderer):
     TICK_DELAY_MILLIS = 500
 
     def __init__(self, master: tk.Tk = None, width: int = 10, height: int = 10,
-                 generator: Optional[MazeGenerator] = None, validate_moves: bool = True) -> None:
+                 generator: Optional[MazeGenerator] = None, size_category: Optional[SizeCategory] = None,
+                 validate_moves: bool = True) -> None:
         """Initialize a MazeApp instance."""
         if master is None:
             master = tk.Tk()
@@ -70,6 +71,7 @@ class MazeApp(Frame, MazeRenderer):
         self.maze_generated = False
         self._generator = generator
         self.solver = MazeSolver()
+        self.menu = None
         self.maze = None
         self.generation_start_cell = None
         self.frontier_cells = set()
@@ -80,13 +82,12 @@ class MazeApp(Frame, MazeRenderer):
         window.minsize(width=700, height=100)
 
         self.pack()
-        self.menu = None
         canvas_frame = Frame()
         canvas_frame.pack(side='left')
+        self.create_horizontal_spacer()
+        self.menu = MazeAppMenu(self, size_category=size_category)
         self.canvas = self.create_canvas(canvas_frame)
         self.stats = self.create_stats_display(canvas_frame)
-        self.create_horizontal_spacer()
-        self.menu = MazeAppMenu(self)
         self.menu.pack(side='left')
 
         self.start_time = None
