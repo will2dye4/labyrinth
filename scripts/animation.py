@@ -37,6 +37,8 @@ class MazeScene(Scene):
 
     DASHED_LINES = False
 
+    GRID_OFFSET = 0.75
+
     INITIAL_VERTEX_COLOR = DARK_BLUE
     WALL_COLOR = GOLD
 
@@ -71,8 +73,7 @@ class MazeScene(Scene):
         return self.VERTEX_RADIUS * self.SCALE_FACTOR
 
     def create_grid(self) -> None:
-        offset = 0.75
-        top_left = self.START_COORDS + (UP * offset) + (LEFT * offset)
+        top_left = self.START_COORDS + (UP * self.GRID_OFFSET) + (LEFT * self.GRID_OFFSET)
         top_right = top_left + (RIGHT * self.NUM_COLUMNS * self.vertex_offset)
         bottom_left = top_left + (DOWN * self.NUM_ROWS * self.vertex_offset)
         bottom_right = top_right + (DOWN * self.NUM_ROWS * self.vertex_offset)
@@ -514,6 +515,42 @@ class PrimsMazeGenerationScene(MazeGenerationScene):
 class WilsonsMazeGenerationScene(MazeGenerationScene):
 
     GENERATOR_TYPE = WilsonsGenerator
+
+
+class LargeMazeGenerationScene(MazeGenerationScene):
+
+    GRID_OFFSET = 0.4
+
+    NUM_COLUMNS = 10
+    NUM_ROWS = NUM_COLUMNS
+
+    SCALE_FACTOR = 0.5
+
+    START_COORDS = LEFT * 3 + UP * 3.3
+
+    @override
+    def animate_graph_destruction(self, lag_ratio: float = 0.1) -> None:
+        super().animate_graph_destruction(lag_ratio=0.05)
+
+
+class LargeDepthFirstSearchMazeGenerationScene(DepthFirstSearchMazeGenerationScene, LargeMazeGenerationScene):
+
+    pass
+
+
+class LargeKruskalsMazeGenerationScene(KruskalsMazeGenerationScene, LargeMazeGenerationScene):
+
+    pass
+
+
+class LargePrimsMazeGenerationScene(PrimsMazeGenerationScene, LargeMazeGenerationScene):
+
+    pass
+
+
+class LargeWilsonsMazeGenerationScene(WilsonsMazeGenerationScene, LargeMazeGenerationScene):
+
+    pass
 
 
 if __name__ == '__main__':
