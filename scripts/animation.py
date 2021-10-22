@@ -62,6 +62,7 @@ class MazeScene(Scene):
         self.edges = {}
 
         self.maze = Maze(width=self.NUM_COLUMNS, height=self.NUM_ROWS, generator=generator)
+        self.solver = MazeSolver()
         self.create_graph()
 
     @property
@@ -154,8 +155,7 @@ class MazeScene(Scene):
         return edges
 
     def get_solution(self) -> List[Circle]:
-        solver = MazeSolver()
-        return [self.vertices[cell.row, cell.column] for cell in solver.solve(self.maze)]
+        return [self.vertices[cell.row, cell.column] for cell in self.solver.solve(self.maze)]
 
     def play_all(self, *animations, lag_ratio: float = 1) -> None:
         self.play(AnimationGroup(*animations, lag_ratio=lag_ratio))
@@ -551,6 +551,57 @@ class LargePrimsMazeGenerationScene(PrimsMazeGenerationScene, LargeMazeGeneratio
 class LargeWilsonsMazeGenerationScene(WilsonsMazeGenerationScene, LargeMazeGenerationScene):
 
     pass
+
+
+class ShowJunctionGraphAndSolution(MazeGenerationScene):
+
+    INITIAL_VERTEX_COLOR = MazeScene.INITIAL_VERTEX_COLOR
+
+    DASHED_LINES = False
+
+    NUM_COLUMNS = 10
+    NUM_ROWS = NUM_COLUMNS
+
+    SCALE_FACTOR = 0.5
+
+    START_COORDS = LEFT * 3 + UP * 3.3
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def create_junction_graph(self) -> None:
+        self.generator.event_listener = None
+        self.generator.generate(self.maze)
+        self.vertices.clear()
+        self.edges.clear()
+
+        self.path = self.solver.solve(self.maze)
+
+        for cell in self.solver.junction_graph.vertices:
+            if not self.solver.is_corridor_cell(cell):
+                self.create_vertex(*cell.coordinates)
+
+        for cell in self.solver.junction_graph.vertices:
+            if not self.solver.is_corridor_cell(cell):
+                coords = cell.coordinates
+                for neighbor in self.solver.junction_graph.neighbors(cell):
+                    neighbor_coords = neighbor.coordinates
+                    if (neighbor_coords, coords) not in self.edges and coords in self.vertices and neighbor_coords in self.vertices:
+                        edge = self.create_edge(self.vertices[coords], self.vertices[neighbor_coords])
+                        self.edges[(coords, neighbor_coords)] = edge
+
+    @override
+    def construct(self) -> None:
+        self.create_junction_graph()
+        self.animate_graph_creation()
+        self.pause()
+
+        for cell in self.path:
+            if cell.coordinates in self.vertices:
+                self.fill_cell(cell, GREEN)
+                self.delay()
+
+        self.pause()
 
 
 if __name__ == '__main__':
