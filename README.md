@@ -13,23 +13,14 @@ in this package.
 
 ## Installation
 
-The package is not currently available on PyPI or any other Python package repository. The easiest
-way to install it is to clone the GitHub repository and install it from source.
+The easiest way to install the package is to download it from [PyPI](https://pypi.org) using `pip`.
+Note that `labyrinth` depends on [Python](https://www.python.org/downloads/) 3.7 or newer; please
+ensure that you have a semi-recent version of Python installed before proceeding.
 
-### Prerequisites
-
-* [Python](https://www.python.org/downloads/) 3.7 or newer
-* [Git](https://git-scm.com)
-* [Make](https://www.gnu.org/software/make/)
-
-### Installation Instructions
-
-Run the following commands in a shell (a UNIX-like environment is assumed):
+Run the following command in a shell (a UNIX-like environment is assumed):
 
 ```
-$ git clone git@github.com:will2dye4/labyrinth.git
-$ cd labyrinth
-$ make install
+$ pip install labyrinth-py
 ```
 
 The package does not have any dependencies besides Python itself. If you wish to

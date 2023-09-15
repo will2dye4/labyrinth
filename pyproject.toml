@@ -1,0 +1,32 @@
+[build-system]
+requires = ['setuptools']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'labyrinth-py'
+version = '1.0.0'
+description = 'Generate and solve mazes using various algorithms'
+license = {file = 'LICENSE'}
+readme = 'README.md'
+authors = [
+    {name = 'William Dye'},
+]
+keywords = [
+    "dfs", "depth first search", "kruskal's algorithm", "labyrinth", "labyrinth generator", "labyrinth gui",
+    "labyrinth solver", "labyrinth ui", "maze", "maze generator", "maze gui", "maze solver", "maze ui",
+    "prim's algorithm", "wilson's algorithm",
+]
+requires-python = '>=3.7'
+
+[project.scripts]
+labyrinth = 'labyrinth.__main__:main'
+labyrinth-ui = 'labyrinth.__main__:gui'
+maze = 'labyrinth.__main__:main'
+maze-ui = 'labyrinth.__main__:gui'
+
+[project.urls]
+Repository = 'https://github.com/will2dye4/labyrinth.git'
+
+[tool.setuptools.packages.find]
+include = ['labyrinth*']
+namespaces = false
