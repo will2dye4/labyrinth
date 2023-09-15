@@ -18,6 +18,7 @@ from labyrinth.render import MazeRenderer
 from labyrinth.solve import MazeSolver
 from labyrinth.ui.colors import (
     BACKGROUND_COLOR,
+    CELL_BACKGROUND_COLOR,
     GENERATE_PATH_COLOR,
     FRONTIER_COLOR,
     INITIAL_CELL_COLOR,
@@ -160,7 +161,8 @@ class MazeApp(Frame, MazeRenderer):
 
     def create_canvas(self, parent: Frame) -> tk.Canvas:
         """Create and return a graphics canvas representing the grid of cells in the maze."""
-        canvas = tk.Canvas(parent, width=self.canvas_width, height=self.canvas_height, borderwidth=0)
+        canvas = tk.Canvas(parent, width=self.canvas_width, height=self.canvas_height, borderwidth=0,
+                           bg=CELL_BACKGROUND_COLOR)
         canvas.bind(LEFT_CLICK, self.click_handler)
         canvas.bind(MOTION, self.motion_handler)
         canvas.pack(side='top')
@@ -282,7 +284,7 @@ class MazeApp(Frame, MazeRenderer):
                         if width_predicate(row, column):
                             width = self.BORDER_WIDTH
                         wall_tag = self.get_wall_tag(row, column, direction)
-                        self.canvas.create_line(*coordinates, width=width, tags=wall_tag)
+                        self.canvas.create_line(*coordinates, width=width, fill=BACKGROUND_COLOR, tags=wall_tag)
                     cell_tag = self.get_cell_tag(row, column)
                     if cell in self.frontier_cells:
                         self.fill_cell(cell, FRONTIER_COLOR, cell_tag)
@@ -339,7 +341,8 @@ class MazeApp(Frame, MazeRenderer):
                             raise ValueError(f'Unexpected direction {direction.name}!')
                         tag = self.get_wall_tag(cell.row, cell.column, direction)
                         opposite_tag = self.get_wall_tag(neighbor.row, neighbor.column, direction.opposite)
-                        self.canvas.create_line(edge_x0, edge_y0, edge_x1, edge_y1, width=2, dash=dash, tags=(tag, opposite_tag))
+                        self.canvas.create_line(edge_x0, edge_y0, edge_x1, edge_y1, width=2, fill=BACKGROUND_COLOR,
+                                                dash=dash, tags=(tag, opposite_tag))
 
     def display_maze(self) -> None:
         """Display the current maze on the canvas."""
@@ -421,7 +424,7 @@ class MazeApp(Frame, MazeRenderer):
         tag = self.get_cell_tag(*cell.coordinates)
         if self.display_mode == DisplayMode.GRID:
             self.canvas.delete(tag)
-            self.fill_cell(cell, 'white')
+            self.fill_cell(cell, CELL_BACKGROUND_COLOR)
         else:
             self.canvas.itemconfigure(tag, fill=VERTEX_COLOR)
 
