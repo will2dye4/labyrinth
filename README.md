@@ -5,7 +5,7 @@ using a variety of different algorithms.
 
 ## About
 
-![Animation - Graph to Grid](https://github.com/will2dye4/labyrinth/blob/master/images/animations/graph_to_grid.gif)
+![Animation - Graph to Grid](https://raw.githubusercontent.com/will2dye4/labyrinth/master/images/animations/graph_to_grid.gif)
 
 See the [docs](https://github.com/will2dye4/labyrinth/blob/master/docs/about.md) for a history of
 this project and an introduction to the mathematical underpinnings of the maze generation and
@@ -173,17 +173,17 @@ search of a "junction graph" of the maze&mdash;is not animated.
 
 A few screenshots of the program running in GUI mode are shown below.
 
-![Maze UI - Grid Mode (solved)](https://github.com/will2dye4/labyrinth/blob/master/images/grid_mode_solved.png)
+![Maze UI - Grid Mode (solved)](https://raw.githubusercontent.com/will2dye4/labyrinth/master/images/grid_mode_solved.png)
 
-![Maze UI - Graph Mode (solved)](https://github.com/will2dye4/labyrinth/blob/master/images/graph_mode_solved.png)
+![Maze UI - Graph Mode (solved)](https://raw.githubusercontent.com/will2dye4/labyrinth/master/images/graph_mode_solved.png)
 
-![Maze UI - Grid Mode (Prim's generator)](https://github.com/will2dye4/labyrinth/blob/master/images/grid_mode_prims_generator.png)
+![Maze UI - Grid Mode (Prim's generator)](https://raw.githubusercontent.com/will2dye4/labyrinth/master/images/grid_mode_prims_generator.png)
 
-![Maze UI - Graph Mode (Kruskal's generator)](https://github.com/will2dye4/labyrinth/blob/master/images/graph_mode_kruskals_generator.png)
+![Maze UI - Graph Mode (Kruskal's generator)](https://raw.githubusercontent.com/will2dye4/labyrinth/master/images/graph_mode_kruskals_generator.png)
 
-![Maze UI - Grid Mode (large cells)](https://github.com/will2dye4/labyrinth/blob/master/images/grid_mode_large_cells.png)
+![Maze UI - Grid Mode (large cells)](https://raw.githubusercontent.com/will2dye4/labyrinth/master/images/grid_mode_large_cells.png)
 
-![Maze UI - Graph Mode (large cells)](https://github.com/will2dye4/labyrinth/blob/master/images/graph_mode_large_cells.png)
+![Maze UI - Graph Mode (large cells)](https://raw.githubusercontent.com/will2dye4/labyrinth/master/images/graph_mode_large_cells.png)
 
 ## References
 
