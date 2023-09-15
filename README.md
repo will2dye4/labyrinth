@@ -5,11 +5,11 @@ using a variety of different algorithms.
 
 ## About
 
-![Animation - Graph to Grid](images/animations/graph_to_grid.gif)
+![Animation - Graph to Grid](https://github.com/will2dye4/labyrinth/blob/master/images/animations/graph_to_grid.gif)
 
-See the [docs](./docs/about.md) for a history of this project and an introduction to
-the mathematical underpinnings of the maze generation and solution algorithms implemented
-in this package.
+See the [docs](https://github.com/will2dye4/labyrinth/blob/master/docs/about.md) for a history of
+this project and an introduction to the mathematical underpinnings of the maze generation and
+solution algorithms implemented in this package.
 
 ## Installation
 
@@ -69,7 +69,8 @@ to the console. Add the `-s` (`--solve`) flag to display the solution to the maz
 
 By default, `maze` will use a depth-first search algorithm to generate the maze.
 To specify a different algorithm, use the `-a` or `--algorithm` flags to `maze`. The
-available algorithms are `dfs`, `kruskal`, `prim`, and `wilson`. See the [docs](./docs/generation_algorithms.md)
+available algorithms are `dfs`, `kruskal`, `prim`, and `wilson`. See the
+[docs](https://github.com/will2dye4/labyrinth/blob/master/docs/generation_algorithms.md)
 for a description of each of these algorithms.
 
 ### Output
@@ -144,11 +145,12 @@ instead of `maze`. By default, the GUI will render the maze with small cells, bu
 or `-l` (`--large`) flags may be passed instead of the `-g` flag to increase the size of the cells.
 When running in GUI mode, only error output is printed to the console, and a window will open containing
 a visual representation of the maze and controls for generating new mazes using the different algorithms
-described [here](./docs/generation_algorithms.md). Once a maze has been generated, clicking and dragging
-from the top left corner of the maze allows the user to solve the maze if they wish; the goal is to reach
-the bottom right corner. While a maze is being generated or solved, the GUI also displays statistics that
-show the size of the maze, the length of the current path through the maze, and how much time has elapsed
-since the maze was generated (i.e., how long it has taken you to solve it!).
+described [here](https://github.com/will2dye4/labyrinth/blob/master/docs/generation_algorithms.md).
+Once a maze has been generated, clicking and dragging from the top left corner of the maze allows the user
+to solve the maze if they wish; the goal is to reach the bottom right corner. While a maze is being
+generated or solved, the GUI also displays statistics that show the size of the maze, the length of the
+current path through the maze, and how much time has elapsed since the maze was generated (i.e., how long
+it has taken you to solve it!).
 
 By default, the generation of new mazes will be animated, showing the current path being added to the maze
 at each step of the process, but this behavior can be disabled by unchecking the `Animate` box on
@@ -171,17 +173,17 @@ search of a "junction graph" of the maze&mdash;is not animated.
 
 A few screenshots of the program running in GUI mode are shown below.
 
-![Maze UI - Grid Mode (solved)](./images/grid_mode_solved.png)
+![Maze UI - Grid Mode (solved)](https://github.com/will2dye4/labyrinth/blob/master/images/grid_mode_solved.png)
 
-![Maze UI - Graph Mode (solved)](./images/graph_mode_solved.png)
+![Maze UI - Graph Mode (solved)](https://github.com/will2dye4/labyrinth/blob/master/images/graph_mode_solved.png)
 
-![Maze UI - Grid Mode (Prim's generator)](./images/grid_mode_prims_generator.png)
+![Maze UI - Grid Mode (Prim's generator)](https://github.com/will2dye4/labyrinth/blob/master/images/grid_mode_prims_generator.png)
 
-![Maze UI - Graph Mode (Kruskal's generator)](./images/graph_mode_kruskals_generator.png)
+![Maze UI - Graph Mode (Kruskal's generator)](https://github.com/will2dye4/labyrinth/blob/master/images/graph_mode_kruskals_generator.png)
 
-![Maze UI - Grid Mode (large cells)](./images/grid_mode_large_cells.png)
+![Maze UI - Grid Mode (large cells)](https://github.com/will2dye4/labyrinth/blob/master/images/grid_mode_large_cells.png)
 
-![Maze UI - Graph Mode (large cells)](./images/graph_mode_large_cells.png)
+![Maze UI - Graph Mode (large cells)](https://github.com/will2dye4/labyrinth/blob/master/images/graph_mode_large_cells.png)
 
 ## References
 
