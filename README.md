@@ -1,5 +1,7 @@
 # labyrinth - Python maze generator and solver
 
+[![PyPI Version](https://img.shields.io/pypi/v/labyrinth-py)](https://pypi.org/project/labyrinth-py/) [![Python Version](https://img.shields.io/pypi/pyversions/labyrinth-py)](https://www.python.org/downloads/) [![PyPI Downloads](https://img.shields.io/pypi/dm/labyrinth-py)](https://pypi.org/project/labyrinth-py/) [![MIT License](https://img.shields.io/github/license/will2dye4/labyrinth)](https://github.com/will2dye4/labyrinth/blob/master/LICENSE)
+
 This package contains utilities for generating and solving [mazes](https://en.wikipedia.org/wiki/Maze)
 using a variety of different algorithms.
 
